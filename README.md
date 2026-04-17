@@ -1,6 +1,6 @@
 [Tinku Hackathon](https://hackathon.thetribu.dev/)
 
-# Equipo `{{NOMBRE_DEL_EQUIPO}}` · TINKU Hackathon 2026
+# Equipo `Los Incapaces` · TINKU Hackathon 2026
 
 **El Ritual CreAItivo · Tu vIAje comienza aquí**
 
@@ -8,7 +8,7 @@
 
 ---
 
-## ¡Ey, **{{NOMBRE_DEL_EQUIPO}}**! 👋
+## ¡Ey, **Los Incapaces**! 👋
 
 Equipo, este repositorio es el hogar oficial de su proyecto durante **TINKU Hackathon 2026**. Aquí van a versionar el código, documentar las decisiones técnicas y dejar listo el producto para la entrega final.
 
@@ -16,9 +16,9 @@ Equipo, este repositorio es el hogar oficial de su proyecto durante **TINKU Hack
 
 ### Integrantes del equipo
 
-En TINKU cada equipo tiene **3 integrantes**. Ustedes son los **participantes** de **{{NOMBRE_DEL_EQUIPO}}** — el equipo que representan en este reto. Entre los tres pueden repartirse el trabajo, apoyarse cuando apriete y llegar a la demo con algo que los haga sentir orgullosos; **cada aporte cuenta**.
+En TINKU cada equipo tiene **3 integrantes**. Ustedes son los **participantes** de **Los Incapaces** — el equipo que representan en este reto. Entre los tres pueden repartirse el trabajo, apoyarse cuando apriete y llegar a la demo con algo que los haga sentir orgullosos; **cada aporte cuenta**.
 
-**Participantes:** {{INTEGRANTE_1_NOMBRE}}, {{INTEGRANTE_2_NOMBRE}}, {{INTEGRANTE_3_NOMBRE}}
+**Participantes:** Robert Sty Triana Cortes, Duban Andres Monsalve Suarez, John Sebastian Nieto Gil
 
 > **Tengan claros los roles internos desde el minuto 1.** No importa cómo los definan —lo que importa es que cada integrante sepa qué aporta y de qué es responsable. Un equipo con roles claros toma decisiones más rápido y llega mejor a la entrega.
 
