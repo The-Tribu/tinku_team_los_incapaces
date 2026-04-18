@@ -10,6 +10,7 @@
     "lint": "next lint",
     "ingest": "tsx src/workers/ingest.ts",
     "alarms": "tsx src/workers/alarms.ts",
+    "repair": "tsx src/workers/repair.ts",
     "cron": "tsx src/workers/cron.ts",
     "mw:ping": "tsx scripts/ping-middleware.ts",
     "db:generate": "prisma generate",

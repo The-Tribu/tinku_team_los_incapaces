@@ -13,6 +13,7 @@ import {
   Timer,
   Users,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { getSessionUser, type Role } from "@/lib/auth";
@@ -33,6 +34,12 @@ const NAV: NavItem[] = [
   { href: "/plantas", label: "Plantas", icon: <Sun className="h-4 w-4" /> },
   { href: "/alarmas", label: "Alarmas", icon: <AlertTriangle className="h-4 w-4" /> },
   { href: "/predicciones", label: "Predicción", icon: <Timer className="h-4 w-4" /> },
+  {
+    href: "/remediaciones",
+    label: "Remediaciones",
+    icon: <Wrench className="h-4 w-4" />,
+    roles: ["admin", "ops"],
+  },
   { href: "/reportes", label: "Reportes", icon: <FileText className="h-4 w-4" /> },
   { href: "/clima", label: "Clima", icon: <CloudSun className="h-4 w-4" /> },
   { href: "/costo-beneficio", label: "Proveedores", icon: <Wallet className="h-4 w-4" /> },

@@ -19,8 +19,16 @@ type Policy = {
   requiredApproverRole: "admin" | "ops";
   maxActionsPerDay: number;
   notes: string | null;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+  cooldownMinutes: number;
+  enabledProviders: string[];
+  requireLlmForRisk: ("low" | "medium" | "high")[];
   updatedAt: string;
 };
+
+const PROVIDER_OPTIONS = ["deye", "huawei", "growatt"] as const;
+const RISK_OPTIONS: ("low" | "medium" | "high")[] = ["low", "medium", "high"];
 
 function riskBadge(risk: "low" | "medium" | "high") {
   if (risk === "high") return "bg-rose-100 text-rose-700 ring-rose-200";
@@ -52,6 +60,24 @@ export function PolicyEditor({
     }));
   };
 
+  const toggleProvider = (slug: string) => {
+    setForm((f) => ({
+      ...f,
+      enabledProviders: f.enabledProviders.includes(slug)
+        ? f.enabledProviders.filter((x) => x !== slug)
+        : [...f.enabledProviders, slug],
+    }));
+  };
+
+  const toggleRisk = (risk: "low" | "medium" | "high") => {
+    setForm((f) => ({
+      ...f,
+      requireLlmForRisk: f.requireLlmForRisk.includes(risk)
+        ? f.requireLlmForRisk.filter((x) => x !== risk)
+        : [...f.requireLlmForRisk, risk],
+    }));
+  };
+
   const submit = async () => {
     setSaving(true);
     setError(null);
@@ -67,6 +93,11 @@ export function PolicyEditor({
           requiredApproverRole: form.requiredApproverRole,
           maxActionsPerDay: form.maxActionsPerDay,
           notes: form.notes ?? null,
+          quietHoursStart: form.quietHoursStart,
+          quietHoursEnd: form.quietHoursEnd,
+          cooldownMinutes: form.cooldownMinutes,
+          enabledProviders: form.enabledProviders,
+          requireLlmForRisk: form.requireLlmForRisk,
         }),
       });
       const j = await res.json();
@@ -88,20 +119,22 @@ export function PolicyEditor({
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="font-heading text-base font-semibold">Nivel de autonomía</h2>
-        <p className="text-xs text-slate-500">Qué puede hacer el sistema cuando nace una alarma o anomalía.</p>
+        <p className="text-xs text-slate-500">
+          Qué puede hacer el sistema cuando nace una alarma o anomalía.
+        </p>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           {(
             [
-              { v: "manual", title: "Manual", hint: "Solo sugerir. Nada se propone automáticamente." },
+              { v: "manual", title: "Manual", hint: "Solo sugerir. El agente NO se invoca." },
               {
                 v: "approval",
                 title: "Con aprobación",
-                hint: "SunHub propone remediaciones; ops/admin aprueba antes de ejecutar.",
+                hint: "El agente propone (cheap-path o LLM); ops/admin aprueba antes de ejecutar.",
               },
               {
                 v: "auto",
                 title: "Automático",
-                hint: "SunHub aprueba y ejecuta sin humano. Respeta modo mock/real.",
+                hint: "El agente propone, auto-aprueba y el executor corre según mock/real.",
               },
             ] as const
           ).map((opt) => (
@@ -128,11 +161,11 @@ export function PolicyEditor({
           <div>
             <h2 className="font-heading text-base font-semibold">Modo de ejecución</h2>
             <p className="text-xs text-slate-500">
-              <b>Mock:</b> simula el envío del comando y guarda el audit como <i>simulated</i>. Nada sale al
-              middleware.
+              <b>Mock:</b> simula el envío del comando y guarda el audit como <i>simulated</i>. Nada
+              sale al middleware.
               <br />
-              <b>Real:</b> POST al endpoint del proveedor. El middleware del hackathon responde 4xx en writes —
-              queda registrado en el audit log.
+              <b>Real:</b> POST al endpoint del proveedor. El middleware del hackathon responde 4xx
+              en writes — queda registrado en el audit log.
             </p>
           </div>
           <label className="flex cursor-pointer select-none items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -142,7 +175,9 @@ export function PolicyEditor({
                 type="checkbox"
                 className="peer sr-only"
                 checked={realEnabled}
-                onChange={(e) => setForm({ ...form, executionMode: e.target.checked ? "real" : "mock" })}
+                onChange={(e) =>
+                  setForm({ ...form, executionMode: e.target.checked ? "real" : "mock" })
+                }
               />
               <span className="absolute inset-0 rounded-full bg-slate-300 peer-checked:bg-rose-500 transition" />
               <span className="absolute left-0.5 top-0.5 inline-block h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5" />
@@ -153,9 +188,9 @@ export function PolicyEditor({
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              Modo <b>REAL</b> activado. Los comandos se enviarán al middleware. Los endpoints de escritura en
-              Deye están deshabilitados por el proveedor, así que esperás 4xx — útil para demostrar auditoría
-              de la respuesta.
+              Modo <b>REAL</b> activado. Los comandos se enviarán al middleware. Los endpoints de
+              escritura están deshabilitados por los proveedores del hackathon, así que esperás 4xx
+              — útil para demostrar auditoría de la respuesta.
             </span>
           </div>
         ) : null}
@@ -174,7 +209,9 @@ export function PolicyEditor({
                 key={c.id}
                 className={
                   "flex cursor-pointer gap-3 rounded-xl border p-3 transition " +
-                  (active ? "border-sky-400 bg-sky-50" : "border-slate-200 bg-white hover:border-slate-300")
+                  (active
+                    ? "border-sky-400 bg-sky-50"
+                    : "border-slate-200 bg-white hover:border-slate-300")
                 }
               >
                 <input
@@ -186,7 +223,12 @@ export function PolicyEditor({
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-900">{c.label}</span>
-                    <span className={"rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 " + riskBadge(c.risk)}>
+                    <span
+                      className={
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 " +
+                        riskBadge(c.risk)
+                      }
+                    >
                       {c.risk}
                     </span>
                   </div>
@@ -198,16 +240,80 @@ export function PolicyEditor({
         </div>
         {autoEnabled && form.allowedCommands.length === 0 ? (
           <div className="mt-3 text-xs text-amber-700">
-            Nivel automático sin comandos permitidos = política degradada a <i>approval</i> al guardar.
+            Nivel automático sin comandos permitidos = política degradada a <i>approval</i> al
+            guardar.
           </div>
         ) : null}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="font-heading text-base font-semibold">Proveedores habilitados</h2>
+        <p className="text-xs text-slate-500">
+          Plantas multi-marca pueden permitir self-repair solo en algunos proveedores. Vacío =
+          todos los proveedores registrados en la planta están habilitados.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {PROVIDER_OPTIONS.map((slug) => {
+            const active = form.enabledProviders.includes(slug);
+            return (
+              <button
+                key={slug}
+                type="button"
+                onClick={() => toggleProvider(slug)}
+                className={
+                  "rounded-full px-3 py-1 text-xs font-medium transition " +
+                  (active
+                    ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
+                    : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 hover:bg-slate-200")
+                }
+              >
+                {slug}
+              </button>
+            );
+          })}
+          {form.enabledProviders.length === 0 ? (
+            <span className="text-xs italic text-slate-500">
+              (sin restricción de proveedor)
+            </span>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="font-heading text-base font-semibold">Forzar LLM por nivel de riesgo</h2>
+        <p className="text-xs text-slate-500">
+          Estos riesgos siempre pasan por MiniMax (no se permite el cheap-path heurístico). Útil
+          para no auto-restartear sin que el agente revise contexto.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {RISK_OPTIONS.map((risk) => {
+            const active = form.requireLlmForRisk.includes(risk);
+            return (
+              <button
+                key={risk}
+                type="button"
+                onClick={() => toggleRisk(risk)}
+                className={
+                  "rounded-full px-3 py-1 text-xs font-medium ring-1 transition " +
+                  (active
+                    ? riskBadge(risk).replace("100", "200")
+                    : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50")
+                }
+              >
+                {risk}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="font-heading text-base font-semibold">Guardrails</h2>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           <div>
-            <label className="text-xs font-medium uppercase text-slate-500">Rol mínimo para aprobar</label>
+            <label className="text-xs font-medium uppercase text-slate-500">
+              Rol mínimo para aprobar
+            </label>
             <select
               value={form.requiredApproverRole}
               onChange={(e) =>
@@ -229,10 +335,82 @@ export function PolicyEditor({
               max={500}
               value={form.maxActionsPerDay}
               onChange={(e) =>
-                setForm({ ...form, maxActionsPerDay: Number.isFinite(+e.target.value) ? +e.target.value : 0 })
+                setForm({
+                  ...form,
+                  maxActionsPerDay: Number.isFinite(+e.target.value) ? +e.target.value : 0,
+                })
               }
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
             />
+          </div>
+          <div>
+            <label className="text-xs font-medium uppercase text-slate-500">
+              Cooldown anti-flap (minutos)
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              value={form.cooldownMinutes}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  cooldownMinutes: Number.isFinite(+e.target.value) ? +e.target.value : 0,
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              Mismo comando + misma planta no se reejecuta dentro de esta ventana.
+            </p>
+          </div>
+          <div>
+            <label className="text-xs font-medium uppercase text-slate-500">
+              Quiet hours (hora local Bogotá)
+            </label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={23}
+                placeholder="—"
+                value={form.quietHoursStart ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    quietHoursStart: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+                className="w-20 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+              />
+              <span className="text-xs text-slate-500">a</span>
+              <input
+                type="number"
+                min={0}
+                max={23}
+                placeholder="—"
+                value={form.quietHoursEnd ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    quietHoursEnd: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+                className="w-20 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setForm({ ...form, quietHoursStart: null, quietHoursEnd: null })
+                }
+                className="text-[11px] text-slate-500 underline hover:text-slate-700"
+              >
+                limpiar
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Ej. 22 → 5: bloquea auto-execute de 22:00 a 04:59.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="text-xs font-medium uppercase text-slate-500">Notas (opcional)</label>

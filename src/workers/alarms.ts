@@ -40,9 +40,13 @@ import type { ProviderSlug } from "../lib/normalize";
 import { publishAlarm, type AlarmEvent } from "../lib/alarm-bus";
 import { fanoutAlarm } from "../lib/notifications";
 import { predictForPlant } from "../lib/predictions";
-import { suggestCommandForAlarm } from "../lib/commands";
 import { propose } from "../lib/remediation";
 import { getOrCreatePolicy, toPolicyView } from "../lib/policies";
+import {
+  alreadyDecidedFor,
+  decideRemediation,
+  linkAgentDecisionToRemediation,
+} from "../lib/agent";
 
 const WINDOW_DAYS = Number(process.env.ALARMS_WINDOW_DAYS ?? 2);
 
@@ -180,10 +184,10 @@ async function autoMatchOpenPredictions(deviceId: string, alarmId: string, alarm
   }
 }
 
-/** On-alarm: corre predicción triggered + propone remediación si política lo permite. */
+/** On-alarm: corre predicción triggered + delega decisión de remediación al agente. */
 async function handleAlarmTriggeredFlow(
   device: DeviceRow,
-  alarm: { id: string; type: string; message: string; severity: string },
+  alarm: { id: string; type: string; message: string; severity: "critical" | "warning" | "info"; source: string; startedAt: Date | string },
 ) {
   // 1. Auto-match de predicciones abiertas (accuracy loop)
   await autoMatchOpenPredictions(device.id, alarm.id, alarm.type).catch((err) =>
@@ -204,28 +208,70 @@ async function handleAlarmTriggeredFlow(
     }
   })();
 
-  // 3. Remediación sugerida si hay comando aplicable y política la permite
-  const commandId = suggestCommandForAlarm(alarm.type);
-  if (!commandId) return;
+  // 3. Delegar al agente la decisión de proponer (o no) una remediación.
+  //    El agente respeta política, kill-switch, allowedCommands y guardrails.
   try {
-    const policyRow = await getOrCreatePolicy(device.plant.id);
-    const policy = toPolicyView(policyRow);
-    if (policy.autonomyLevel === "manual") {
-      // manual: ni siquiera proponer (queda para que el operador decida sin ruido)
+    if (await alreadyDecidedFor(alarm.id)) {
+      // Ya hubo una decisión para esta alarma en una corrida anterior — no repetimos.
       return;
     }
-    if (!policy.allowedCommands.includes(commandId)) return;
-    await propose({
+
+    const policyRow = await getOrCreatePolicy(device.plant.id);
+    const policy = toPolicyView(policyRow);
+    const plantData = await prisma.plant.findUnique({
+      where: { id: device.plant.id },
+      select: { capacityKwp: true },
+    });
+
+    const decision = await decideRemediation({
+      alarm: {
+        id: alarm.id,
+        type: alarm.type,
+        severity: alarm.severity,
+        source: alarm.source,
+        message: alarm.message,
+        startedAt: alarm.startedAt,
+      },
+      plant: {
+        id: device.plant.id,
+        name: device.plant.name,
+        code: device.plant.code,
+        capacityKwp: plantData?.capacityKwp ? Number(plantData.capacityKwp) : null,
+      },
+      device: {
+        id: device.id,
+        externalId: device.externalId,
+        providerSlug: device.provider.slug,
+        kind: device.kind,
+        currentStatus: "online", // el campo currentStatus se actualiza en ingest
+      },
+      policy,
+    });
+
+    if (decision.action === "skip") {
+      console.log(
+        `[alarms] agent skip for alarm=${alarm.id} (${alarm.type}) → ${decision.reason}`,
+      );
+      return;
+    }
+
+    const rem = await propose({
       plantId: device.plant.id,
       deviceId: device.id,
       deviceExternalId: device.externalId,
-      commandId,
-      reason: `Alarma ${alarm.severity}/${alarm.type}: ${alarm.message.slice(0, 140)}`,
+      commandId: decision.commandId,
+      reason: `[agente${decision.llmUsed ? "+LLM" : ""}] ${decision.rationale}`,
       alarmId: alarm.id,
       proposedBy: "ai",
+      aiConfidence: decision.confidence,
     });
+    await linkAgentDecisionToRemediation(decision.decisionId, rem.id);
+
+    console.log(
+      `[alarms] agent proposed ${decision.commandId} for alarm=${alarm.id} (conf=${decision.confidence.toFixed(2)}, llm=${decision.llmUsed})`,
+    );
   } catch (err) {
-    console.warn(`[alarms] propose remediation failed: ${(err as Error).message}`);
+    console.warn(`[alarms] agent flow failed: ${(err as Error).message}`);
   }
 }
 
@@ -263,6 +309,8 @@ export async function ingestAlarms() {
           type: event.type,
           message: event.message,
           severity: event.severity,
+          source: event.source,
+          startedAt: event.startedAt,
         });
       } else if (event.kind === "resolved") {
         resolved++;

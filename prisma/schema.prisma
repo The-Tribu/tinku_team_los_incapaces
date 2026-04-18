@@ -13,15 +13,15 @@ datasource db {
 
 // ── Autenticación y usuarios ──────────────────────────────────
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  email        String    @unique
-  name         String
-  passwordHash String    @map("password_hash")
-  role         String    @default("viewer") // admin | ops | viewer
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastLoginAt  DateTime? @map("last_login_at")
-  sessions     Session[]
+  id                     String                  @id @default(uuid()) @db.Uuid
+  email                  String                  @unique
+  name                   String
+  passwordHash           String                  @map("password_hash")
+  role                   String                  @default("viewer") // admin | ops | viewer
+  active                 Boolean                 @default(true)
+  createdAt              DateTime                @default(now()) @map("created_at")
+  lastLoginAt            DateTime?               @map("last_login_at")
+  sessions               Session[]
   notificationPreference NotificationPreference?
 
   @@map("users")
@@ -43,14 +43,14 @@ model Session {
 
 // ── Comercial ─────────────────────────────────────────────────
 model Client {
-  id                String           @id @default(uuid()) @db.Uuid
-  name              String
-  contactEmail      String?          @map("contact_email")
-  region            String?
-  createdAt         DateTime         @default(now()) @map("created_at")
-  plants            Plant[]
-  reports           Report[]
-  reportSchedules   ReportSchedule[]
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String
+  contactEmail    String?          @map("contact_email")
+  region          String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  plants          Plant[]
+  reports         Report[]
+  reportSchedules ReportSchedule[]
 
   @@map("clients")
 }
@@ -68,7 +68,7 @@ model Plant {
   contractEnd  DateTime? @map("contract_end") @db.Date
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  client          Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client          Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   devices         Device[]
   contracts       Contract[]
   reports         Report[]
@@ -139,15 +139,15 @@ model Reading {
 
 // ── Contratos y compromisos ───────────────────────────────────
 model Contract {
-  id                String   @id @default(uuid()) @db.Uuid
-  plantId           String   @map("plant_id") @db.Uuid
-  periodMonth       DateTime @map("period_month") @db.Date
-  targetEnergyKwh   Decimal? @map("target_energy_kwh") @db.Decimal(12, 2)
-  targetSavingsCop  Decimal? @map("target_savings_cop") @db.Decimal(14, 2)
-  targetUptimePct   Decimal? @map("target_uptime_pct") @db.Decimal(5, 2)
-  targetPrPct       Decimal? @map("target_pr_pct") @db.Decimal(5, 2)
-  targetCo2Ton      Decimal? @map("target_co2_ton") @db.Decimal(10, 3)
-  penaltyPerBreach  Decimal? @map("penalty_per_breach") @db.Decimal(14, 2)
+  id               String   @id @default(uuid()) @db.Uuid
+  plantId          String   @map("plant_id") @db.Uuid
+  periodMonth      DateTime @map("period_month") @db.Date
+  targetEnergyKwh  Decimal? @map("target_energy_kwh") @db.Decimal(12, 2)
+  targetSavingsCop Decimal? @map("target_savings_cop") @db.Decimal(14, 2)
+  targetUptimePct  Decimal? @map("target_uptime_pct") @db.Decimal(5, 2)
+  targetPrPct      Decimal? @map("target_pr_pct") @db.Decimal(5, 2)
+  targetCo2Ton     Decimal? @map("target_co2_ton") @db.Decimal(10, 3)
+  penaltyPerBreach Decimal? @map("penalty_per_breach") @db.Decimal(14, 2)
 
   plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
 
@@ -215,14 +215,14 @@ model Ticket {
 
 // ── Notificaciones ────────────────────────────────────────────
 model NotificationPreference {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @unique @map("user_id") @db.Uuid
-  emailEnabled      Boolean  @default(true) @map("email_enabled")
-  browserEnabled    Boolean  @default(true) @map("browser_enabled")
-  soundEnabled      Boolean  @default(true) @map("sound_enabled")
-  minSeverity       String   @default("warning") @map("min_severity") // critical | warning | info
-  cooldownMinutes   Int      @default(10) @map("cooldown_minutes")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  emailEnabled    Boolean  @default(true) @map("email_enabled")
+  browserEnabled  Boolean  @default(true) @map("browser_enabled")
+  soundEnabled    Boolean  @default(true) @map("sound_enabled")
+  minSeverity     String   @default("warning") @map("min_severity") // critical | warning | info
+  cooldownMinutes Int      @default(10) @map("cooldown_minutes")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -230,13 +230,13 @@ model NotificationPreference {
 }
 
 model NotificationLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  alarmId   String   @map("alarm_id") @db.Uuid
-  userId    String?  @map("user_id") @db.Uuid
-  channel   String // email | browser | sse
-  status    String // sent | skipped | failed
-  detail    String?
-  sentAt    DateTime @default(now()) @map("sent_at")
+  id      String   @id @default(uuid()) @db.Uuid
+  alarmId String   @map("alarm_id") @db.Uuid
+  userId  String?  @map("user_id") @db.Uuid
+  channel String // email | browser | sse
+  status  String // sent | skipped | failed
+  detail  String?
+  sentAt  DateTime @default(now()) @map("sent_at")
 
   @@index([alarmId, sentAt(sort: Desc)])
   @@index([userId, sentAt(sort: Desc)])
@@ -261,8 +261,8 @@ model Prediction {
   triggerKind     String   @default("scheduled") @map("trigger_kind")
   sourceAlarmId   String?  @map("source_alarm_id") @db.Uuid
 
-  device       Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  sourceAlarm  Alarm?              @relation(fields: [sourceAlarmId], references: [id], onDelete: SetNull)
+  device       Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  sourceAlarm  Alarm?             @relation(fields: [sourceAlarmId], references: [id], onDelete: SetNull)
   outcome      PredictionOutcome?
   remediations Remediation[]
 
@@ -275,14 +275,14 @@ model Prediction {
 // Outcome de una predicción: ¿el evento ocurrió? lo cerramos manualmente o lo
 // emparejamos con una alarma. Se consume luego como RAG en el prompt del LLM.
 model PredictionOutcome {
-  id              String    @id @default(uuid()) @db.Uuid
-  predictionId    String    @unique @map("prediction_id") @db.Uuid
-  status          String // confirmed | dismissed | auto_matched | expired
-  matchedAlarmId  String?   @map("matched_alarm_id") @db.Uuid
-  actualEventAt   DateTime? @map("actual_event_at")
-  notes           String?
-  decidedBy       String?   @map("decided_by") @db.Uuid
-  decidedAt       DateTime  @default(now()) @map("decided_at")
+  id             String    @id @default(uuid()) @db.Uuid
+  predictionId   String    @unique @map("prediction_id") @db.Uuid
+  status         String // confirmed | dismissed | auto_matched | expired
+  matchedAlarmId String?   @map("matched_alarm_id") @db.Uuid
+  actualEventAt  DateTime? @map("actual_event_at")
+  notes          String?
+  decidedBy      String?   @map("decided_by") @db.Uuid
+  decidedAt      DateTime  @default(now()) @map("decided_at")
 
   prediction Prediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
 
@@ -317,16 +317,28 @@ model DeviceBaseline {
 // aprobación humana, o solo sugerirlos. executionMode decide si el executor
 // envía el POST real al middleware o se queda en simulación.
 model PlantAutomationPolicy {
-  id                 String   @id @default(uuid()) @db.Uuid
-  plantId            String   @unique @map("plant_id") @db.Uuid
-  autonomyLevel      String   @default("manual") @map("autonomy_level") // manual | approval | auto
-  executionMode      String   @default("mock") @map("execution_mode") // mock | real
-  allowedCommands    String[] @default([]) @map("allowed_commands")
-  requiredApproverRole String @default("admin") @map("required_approver_role") // admin | ops
-  maxActionsPerDay   Int      @default(10) @map("max_actions_per_day")
-  notes              String?
-  updatedBy          String?  @map("updated_by") @db.Uuid
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+  id                   String   @id @default(uuid()) @db.Uuid
+  plantId              String   @unique @map("plant_id") @db.Uuid
+  autonomyLevel        String   @default("manual") @map("autonomy_level") // manual | approval | auto
+  executionMode        String   @default("mock") @map("execution_mode") // mock | real
+  allowedCommands      String[] @default([]) @map("allowed_commands")
+  requiredApproverRole String   @default("admin") @map("required_approver_role") // admin | ops
+  maxActionsPerDay     Int      @default(10) @map("max_actions_per_day")
+  notes                String?
+  updatedBy            String?  @map("updated_by") @db.Uuid
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Guardrails extra para self-repair agentic.
+  // quietHours: ventana en hora local de la planta (ej. 22..5). Null = sin ventana.
+  quietHoursStart   Int?     @map("quiet_hours_start")
+  quietHoursEnd     Int?     @map("quiet_hours_end")
+  // Cooldown anti-flap por (planta, commandType) en minutos.
+  cooldownMinutes   Int      @default(60) @map("cooldown_minutes")
+  // Lista blanca de proveedores donde se permite self-repair.
+  // Vacío = sin filtro (acepta todos los slugs registrados en la planta).
+  enabledProviders  String[] @default([]) @map("enabled_providers")
+  // Nivel de riesgo que SIEMPRE debe pasar por el LLM (sin cheap-path heurístico).
+  requireLlmForRisk String[] @default([]) @map("require_llm_for_risk") // medium | high
 
   plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
 
@@ -337,51 +349,62 @@ model PlantAutomationPolicy {
 // lifecycle: proposed → (approved|rejected) → executed → (verified|failed).
 // Cada intento de ejecución deja un registro en RemediationAudit.
 model Remediation {
-  id               String    @id @default(uuid()) @db.Uuid
-  plantId          String    @map("plant_id") @db.Uuid
-  deviceId         String?   @map("device_id") @db.Uuid
-  predictionId     String?   @map("prediction_id") @db.Uuid
-  alarmId          String?   @map("alarm_id") @db.Uuid
-  commandType      String    @map("command_type") // restart | clear_fault | set_work_mode | custom_control
-  commandPayload   Json      @map("command_payload")
-  reason           String
-  status           String    @default("proposed") // proposed | approved | rejected | executing | executed | verified | failed | cancelled
-  executionMode    String    @default("mock") @map("execution_mode") // mock | real (decidido al ejecutar)
-  proposedBy       String    @default("ai") @map("proposed_by") // ai | user
-  proposedAt       DateTime  @default(now()) @map("proposed_at")
-  approvedBy       String?   @map("approved_by") @db.Uuid
-  approvedAt       DateTime? @map("approved_at")
-  rejectedBy       String?   @map("rejected_by") @db.Uuid
-  rejectedAt       DateTime? @map("rejected_at")
-  rejectedReason   String?   @map("rejected_reason")
-  executedAt       DateTime? @map("executed_at")
-  executedBy       String?   @map("executed_by") @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
+  plantId         String    @map("plant_id") @db.Uuid
+  deviceId        String?   @map("device_id") @db.Uuid
+  predictionId    String?   @map("prediction_id") @db.Uuid
+  alarmId         String?   @map("alarm_id") @db.Uuid
+  commandType     String    @map("command_type") // restart | clear_fault | set_work_mode | custom_control
+  commandPayload  Json      @map("command_payload")
+  reason          String
+  status          String    @default("proposed") // proposed | approved | rejected | executing | executed | verified | failed | cancelled
+  executionMode   String    @default("mock") @map("execution_mode") // mock | real (decidido al ejecutar)
+  proposedBy      String    @default("ai") @map("proposed_by") // ai | user
+  proposedAt      DateTime  @default(now()) @map("proposed_at")
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  approvedAt      DateTime? @map("approved_at")
+  rejectedBy      String?   @map("rejected_by") @db.Uuid
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectedReason  String?   @map("rejected_reason")
+  executedAt      DateTime? @map("executed_at")
+  executedBy      String?   @map("executed_by") @db.Uuid
   // orderId devuelto por el middleware cuando real mode tiene éxito (Deye).
-  providerOrderId  String?   @map("provider_order_id")
+  providerOrderId String?   @map("provider_order_id")
   // Resumen breve del resultado (HTTP status, mensaje, simulado).
-  executionResult  Json?     @map("execution_result")
-  verifiedAt       DateTime? @map("verified_at")
-  verifiedOutcome  String?   @map("verified_outcome") // success | partial | no_effect
+  executionResult Json?     @map("execution_result")
+  verifiedAt      DateTime? @map("verified_at")
+  verifiedOutcome String?   @map("verified_outcome") // success | partial | no_effect
+  // Cancelación blanda: cuando la alarma origen se autorresuelve antes de
+  // ejecutar, el repair worker (o un humano) cancela la propuesta sin enviar.
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelledBy     String?   @map("cancelled_by") @db.Uuid
+  cancelledReason String?   @map("cancelled_reason")
+  // Confianza con la que el agente propuso el comando (0..1). Null si fue user.
+  aiConfidence    Decimal?  @map("ai_confidence") @db.Decimal(4, 3)
+  // Reintentos automáticos por el repair worker.
+  retryCount      Int       @default(0) @map("retry_count")
+  nextRetryAt     DateTime? @map("next_retry_at")
 
-  plant      Plant                @relation(fields: [plantId], references: [id], onDelete: Cascade)
-  device     Device?              @relation(fields: [deviceId], references: [id], onDelete: SetNull)
-  prediction Prediction?          @relation(fields: [predictionId], references: [id], onDelete: SetNull)
-  alarm      Alarm?               @relation(fields: [alarmId], references: [id], onDelete: SetNull)
+  plant      Plant              @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  device     Device?            @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  prediction Prediction?        @relation(fields: [predictionId], references: [id], onDelete: SetNull)
+  alarm      Alarm?             @relation(fields: [alarmId], references: [id], onDelete: SetNull)
   audit      RemediationAudit[]
 
   @@index([plantId, proposedAt(sort: Desc)])
   @@index([status, proposedAt(sort: Desc)])
+  @@index([nextRetryAt])
   @@map("remediations")
 }
 
 model RemediationAudit {
-  id             String   @id @default(uuid()) @db.Uuid
-  remediationId  String   @map("remediation_id") @db.Uuid
-  event          String // proposed | approved | rejected | executed | verified | failed
-  actorUserId    String?  @map("actor_user_id") @db.Uuid
-  actorKind      String   @default("user") @map("actor_kind") // user | system | ai
-  payload        Json?
-  createdAt      DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  remediationId String   @map("remediation_id") @db.Uuid
+  event         String // proposed | approved | rejected | executed | verified | failed
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  actorKind     String   @default("user") @map("actor_kind") // user | system | ai
+  payload       Json?
+  createdAt     DateTime @default(now()) @map("created_at")
 
   remediation Remediation @relation(fields: [remediationId], references: [id], onDelete: Cascade)
 
@@ -450,21 +473,50 @@ model ReportSchedule {
 // La UI consulta este modelo para mostrar spinner persistente en el header
 // y avisar cuando terminan (aunque el usuario haya navegado a otra página).
 model PredictionJob {
-  id              String    @id @default(uuid()) @db.Uuid
-  kind            String    @default("run-all") // run-all | (futuros tipos)
-  status          String    @default("pending") // pending | running | completed | failed
-  totalCount      Int       @default(0) @map("total_count")
-  processedCount  Int       @default(0) @map("processed_count")
-  successCount    Int       @default(0) @map("success_count")
-  failedCount     Int       @default(0) @map("failed_count")
-  totalPredictions Int      @default(0) @map("total_predictions")
-  currentPlant    String?   @map("current_plant")
-  startedBy       String?   @map("started_by") @db.Uuid
-  startedAt       DateTime  @default(now()) @map("started_at")
-  finishedAt      DateTime? @map("finished_at")
-  error           String?
-  results         Json?
+  id               String    @id @default(uuid()) @db.Uuid
+  kind             String    @default("run-all") // run-all | (futuros tipos)
+  status           String    @default("pending") // pending | running | completed | failed
+  totalCount       Int       @default(0) @map("total_count")
+  processedCount   Int       @default(0) @map("processed_count")
+  successCount     Int       @default(0) @map("success_count")
+  failedCount      Int       @default(0) @map("failed_count")
+  totalPredictions Int       @default(0) @map("total_predictions")
+  currentPlant     String?   @map("current_plant")
+  startedBy        String?   @map("started_by") @db.Uuid
+  startedAt        DateTime  @default(now()) @map("started_at")
+  finishedAt       DateTime? @map("finished_at")
+  error            String?
+  results          Json?
 
   @@index([status, startedAt(sort: Desc)])
   @@map("prediction_jobs")
+}
+
+// ── Self-repair: log de decisiones del agente ─────────────────
+// Registra TODAS las decisiones del agente (proponer o NO actuar) para
+// que la auditoría pueda explicar por qué se hizo o se omitió una
+// remediación. Distinto a RemediationAudit, que es por evento de una
+// Remediation existente — aquí también queda lo que el agente decidió
+// no convertir en Remediation.
+model AgentDecision {
+  id            String   @id @default(uuid()) @db.Uuid
+  plantId       String   @map("plant_id") @db.Uuid
+  alarmId       String?  @map("alarm_id") @db.Uuid
+  predictionId  String?  @map("prediction_id") @db.Uuid
+  // propose → terminó creando Remediation; skip → el agente desistió.
+  action        String
+  commandId     String?  @map("command_id")
+  rationale     String
+  confidence    Decimal? @db.Decimal(4, 3)
+  // true si el LLM fue invocado; false = decidió por cheap-path heurístico.
+  llmUsed       Boolean  @default(false) @map("llm_used")
+  modelVersion  String?  @map("model_version")
+  // Si terminó creando Remediation, guardamos el id para correlación.
+  remediationId String?  @map("remediation_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([plantId, createdAt(sort: Desc)])
+  @@index([alarmId])
+  @@index([action, createdAt(sort: Desc)])
+  @@map("agent_decisions")
 }

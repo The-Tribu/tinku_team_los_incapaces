@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { canAdmin, getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getOrCreatePolicy, sanitizeCommands, toPolicyView } from "@/lib/policies";
+import {
+  getOrCreatePolicy,
+  sanitizeCommands,
+  sanitizeProviders,
+  sanitizeRiskList,
+  sanitizeHour,
+  toPolicyView,
+} from "@/lib/policies";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +17,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pla
   const me = await getSessionUser();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { plantId } = await params;
-  const plant = await prisma.plant.findUnique({ where: { id: plantId }, select: { id: true, name: true, code: true } });
+  const plant = await prisma.plant.findUnique({
+    where: { id: plantId },
+    select: { id: true, name: true, code: true },
+  });
   if (!plant) return NextResponse.json({ error: "plant not found" }, { status: 404 });
   const row = await getOrCreatePolicy(plantId);
   return NextResponse.json({ plant, policy: toPolicyView(row) });
@@ -23,6 +33,12 @@ const updateSchema = z.object({
   requiredApproverRole: z.enum(["admin", "ops"]),
   maxActionsPerDay: z.number().int().min(0).max(500),
   notes: z.string().max(500).nullable().optional(),
+  // Guardrails extra (todos opcionales para no romper callers viejos):
+  quietHoursStart: z.number().int().min(0).max(23).nullable().optional(),
+  quietHoursEnd: z.number().int().min(0).max(23).nullable().optional(),
+  cooldownMinutes: z.number().int().min(0).max(1440).optional(),
+  enabledProviders: z.array(z.string()).max(10).optional(),
+  requireLlmForRisk: z.array(z.enum(["low", "medium", "high"])).max(3).optional(),
 });
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ plantId: string }> }) {
@@ -36,13 +52,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ plan
 
   const parsed = updateSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
-    return NextResponse.json({ error: "validation failed", issues: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: "validation failed", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
   const cleaned = sanitizeCommands(parsed.data.allowedCommands);
   // Si sube a auto con comandos vacíos, forzamos approval — la auto-ejecución
   // sin comandos permitidos no tiene sentido.
   const autonomyLevel =
-    parsed.data.autonomyLevel === "auto" && cleaned.length === 0 ? "approval" : parsed.data.autonomyLevel;
+    parsed.data.autonomyLevel === "auto" && cleaned.length === 0
+      ? "approval"
+      : parsed.data.autonomyLevel;
 
   await getOrCreatePolicy(plantId);
   const updated = await prisma.plantAutomationPolicy.update({
@@ -54,6 +75,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ plan
       requiredApproverRole: parsed.data.requiredApproverRole,
       maxActionsPerDay: parsed.data.maxActionsPerDay,
       notes: parsed.data.notes ?? null,
+      quietHoursStart: sanitizeHour(parsed.data.quietHoursStart ?? null),
+      quietHoursEnd: sanitizeHour(parsed.data.quietHoursEnd ?? null),
+      cooldownMinutes: parsed.data.cooldownMinutes ?? 60,
+      enabledProviders: sanitizeProviders(parsed.data.enabledProviders ?? []),
+      requireLlmForRisk: sanitizeRiskList(parsed.data.requireLlmForRisk ?? []),
       updatedBy: me!.id,
     },
   });

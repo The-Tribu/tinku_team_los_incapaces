@@ -38,6 +38,7 @@ import cron from "node-cron";
 import { prisma } from "../lib/prisma";
 import { tick as ingestTick } from "./ingest";
 import { ingestAlarms } from "./alarms";
+import { repairTick } from "./repair";
 import { syncRealPlants } from "../../scripts/sync-real-plants";
 import { updateBaselines } from "../../scripts/update-baselines";
 import { runDueSchedules } from "../lib/report-schedules";
@@ -47,6 +48,7 @@ const ALARMS_SCHEDULE = process.env.CRON_ALARMS_SCHEDULE ?? "* * * * *"; // cada
 const PLANTS_SYNC_SCHEDULE = process.env.CRON_PLANTS_SYNC_SCHEDULE ?? "0 * * * *";
 const BASELINES_SCHEDULE = process.env.CRON_BASELINES_SCHEDULE ?? "15 3 * * *"; // 03:15 local
 const REPORT_SCHEDULES_SCHEDULE = process.env.CRON_REPORT_SCHEDULES_SCHEDULE ?? "* * * * *"; // cada minuto
+const REPAIR_SCHEDULE = process.env.CRON_REPAIR_SCHEDULE ?? "*/2 * * * *"; // cada 2 min
 const TIMEZONE = process.env.CRON_TIMEZONE ?? "America/Bogota";
 const RUN_ON_START = process.env.CRON_RUN_ON_START !== "0";
 
@@ -74,6 +76,7 @@ async function main() {
   assertValid(PLANTS_SYNC_SCHEDULE, "CRON_PLANTS_SYNC_SCHEDULE");
   assertValid(BASELINES_SCHEDULE, "CRON_BASELINES_SCHEDULE");
   assertValid(REPORT_SCHEDULES_SCHEDULE, "CRON_REPORT_SCHEDULES_SCHEDULE");
+  assertValid(REPAIR_SCHEDULE, "CRON_REPAIR_SCHEDULE");
 
   console.log("[cron] starting SunHub cron worker");
   console.log(`[cron]   ingest           → ${INGEST_SCHEDULE} (${TIMEZONE})`);
@@ -81,6 +84,7 @@ async function main() {
   console.log(`[cron]   plants-sync      → ${PLANTS_SYNC_SCHEDULE} (${TIMEZONE})`);
   console.log(`[cron]   baselines        → ${BASELINES_SCHEDULE} (${TIMEZONE})`);
   console.log(`[cron]   report-schedules → ${REPORT_SCHEDULES_SCHEDULE} (${TIMEZONE})`);
+  console.log(`[cron]   self-repair      → ${REPAIR_SCHEDULE} (${TIMEZONE})`);
   console.log(`[cron]   middleware       → ${process.env.MIDDLEWARE_BASE_URL ?? "(unset)"}`);
 
   cron.schedule(INGEST_SCHEDULE, () => void safeRun("ingest", ingestTick), { timezone: TIMEZONE });
@@ -104,6 +108,9 @@ async function main() {
       }),
     { timezone: TIMEZONE },
   );
+  cron.schedule(REPAIR_SCHEDULE, () => void safeRun("repair", repairTick), {
+    timezone: TIMEZONE,
+  });
 
   if (RUN_ON_START) {
     // plants-sync en bootstrap deshabilitado temporalmente (flujo
@@ -112,6 +119,7 @@ async function main() {
     await safeRun("ingest (bootstrap)", ingestTick);
     await safeRun("alarms (bootstrap)", ingestAlarms);
     await safeRun("baselines (bootstrap)", updateBaselines);
+    await safeRun("repair (bootstrap)", repairTick);
     await safeRun("report-schedules (bootstrap)", async () => {
       const res = await runDueSchedules();
       console.log(

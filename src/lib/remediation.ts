@@ -7,23 +7,28 @@
  *   2. `approve()` marca approved por un user.
  *   3. `execute()` dispara el comando:
  *      - executionMode=mock → escribe audit + result simulado, status=executed.
- *      - executionMode=real → POST al middleware (`/<provider>/v1.0/order/...`),
+ *      - executionMode=real → POST al middleware (`/<provider>/.../order/...`),
  *        captura respuesta tal cual. Si hay `orderId` queda en providerOrderId
  *        para consultar GET /v1.0/order/{id} en `verify()`.
  *   4. `verify()` llama al GET de la orden (solo Deye por ahora) y marca
  *      verifiedOutcome = success|partial|no_effect.
+ *   5. `cancel()` cierra una proposed cuando la alarma origen se autorresolvió.
+ *   6. `markForRetry()` programa nextRetryAt para que el repair worker
+ *      reintente una failed por causas transitorias (rate-limit, timeout).
  *
  * Todo se refleja en RemediationAudit para trazabilidad.
  */
 import { prisma } from "./prisma";
-import { mw, MiddlewareError } from "./middleware";
-import { COMMANDS, getCommand, type CommandId } from "./commands";
+import { mw, MiddlewareError, MiddlewareRateLimitError } from "./middleware";
+import { getCommand, type CommandId } from "./commands";
 import {
   canExecuteToday,
   getOrCreatePolicy,
   toPolicyView,
   type ExecutionMode,
 } from "./policies";
+
+const MAX_RETRIES = Number(process.env.REPAIR_MAX_RETRIES ?? 3);
 
 type ProposeArgs = {
   plantId: string;
@@ -35,19 +40,37 @@ type ProposeArgs = {
   predictionId?: string | null;
   proposedBy?: "ai" | "user";
   args?: Record<string, unknown>;
+  /** Confianza con la que el agente propuso (solo si proposedBy=ai). */
+  aiConfidence?: number | null;
 };
 
 export async function propose(input: ProposeArgs) {
   const cmd = getCommand(input.commandId);
   if (!cmd) throw new Error(`unknown command ${input.commandId}`);
-  if (!input.deviceExternalId && input.deviceId) {
+
+  let providerSlug: string | null = null;
+  if (input.deviceId) {
     const d = await prisma.device.findUnique({
       where: { id: input.deviceId },
-      select: { externalId: true },
+      select: { externalId: true, provider: { select: { slug: true } } },
     });
-    input.deviceExternalId = d?.externalId ?? null;
+    if (!input.deviceExternalId) input.deviceExternalId = d?.externalId ?? null;
+    providerSlug = d?.provider.slug ?? null;
   }
-  const payload = cmd.buildPayload(input.deviceExternalId ?? "unknown", input.args);
+
+  // Si conocemos el proveedor, validamos que el comando lo soporte. Sin esto
+  // proponemos algo que ni siquiera tiene endpoint y queda en audit como ruido.
+  if (providerSlug && !cmd.supportedProviders.includes(providerSlug)) {
+    throw new Error(
+      `comando ${input.commandId} no es soportado para ${providerSlug} (soportados: ${cmd.supportedProviders.join(", ") || "ninguno"})`,
+    );
+  }
+
+  // Construimos el payload de muestra (lo real se reconstruye en execute() con
+  // el slug del device para asegurar coherencia si el device cambió de proveedor).
+  const sample = cmd.build(input.deviceExternalId ?? "unknown", providerSlug ?? "deye", input.args);
+  const payload = sample?.payload ?? { commandId: input.commandId, args: input.args ?? {} };
+
   const rem = await prisma.remediation.create({
     data: {
       plantId: input.plantId,
@@ -59,6 +82,10 @@ export async function propose(input: ProposeArgs) {
       reason: input.reason,
       status: "proposed",
       proposedBy: input.proposedBy ?? "ai",
+      aiConfidence:
+        typeof input.aiConfidence === "number" && Number.isFinite(input.aiConfidence)
+          ? input.aiConfidence
+          : null,
     },
   });
   await prisma.remediationAudit.create({
@@ -66,7 +93,11 @@ export async function propose(input: ProposeArgs) {
       remediationId: rem.id,
       event: "proposed",
       actorKind: input.proposedBy === "user" ? "user" : "ai",
-      payload: { commandId: input.commandId, reason: input.reason },
+      payload: {
+        commandId: input.commandId,
+        reason: input.reason,
+        aiConfidence: input.aiConfidence ?? null,
+      },
     },
   });
 
@@ -135,10 +166,49 @@ export async function reject(remediationId: string, userId: string, reason: stri
   return updated;
 }
 
+/**
+ * Cancela una remediación que aún no se ejecutó. Útil cuando la alarma
+ * origen se autorresuelve antes de que el operador apruebe / antes de que
+ * el repair worker la levante.
+ */
+export async function cancel(
+  remediationId: string,
+  userId: string | null,
+  reason: string,
+  actorKind: "user" | "system" = "user",
+) {
+  const rem = await prisma.remediation.findUnique({ where: { id: remediationId } });
+  if (!rem) throw new Error("remediation not found");
+  if (rem.status !== "proposed" && rem.status !== "approved") {
+    throw new Error(`no se puede cancelar, estado=${rem.status}`);
+  }
+  const updated = await prisma.remediation.update({
+    where: { id: remediationId },
+    data: {
+      status: "cancelled",
+      cancelledAt: new Date(),
+      cancelledBy: userId,
+      cancelledReason: reason,
+    },
+  });
+  await prisma.remediationAudit.create({
+    data: {
+      remediationId,
+      event: "cancelled",
+      actorUserId: userId,
+      actorKind,
+      payload: { reason },
+    },
+  });
+  return updated;
+}
+
 type ExecuteOpts = {
   userId?: string | null;
-  // Override explícito del modo. Si no se pasa, se toma de la política.
+  /** Override explícito del modo. Si no se pasa, se toma de la política. */
   executionMode?: ExecutionMode;
+  /** Si true, marca como retry en el audit (lo usa el repair worker). */
+  isRetry?: boolean;
 };
 
 export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
@@ -154,31 +224,45 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
   const cmd = getCommand(rem.commandType);
   if (!cmd) throw new Error(`comando desconocido ${rem.commandType}`);
 
-  const policyCheck = await canExecuteToday(rem.plantId, rem.commandType);
+  const providerSlug = rem.device?.provider.slug ?? "deye";
+
+  const policyCheck = await canExecuteToday(rem.plantId, rem.commandType, { providerSlug });
   if (!policyCheck.ok) throw new Error(`política bloquea ejecución: ${policyCheck.reason}`);
 
   const mode: ExecutionMode = opts.executionMode ?? policyCheck.policy.executionMode;
   const deviceExternalId = rem.device?.externalId ?? "unknown";
-  const providerSlug = rem.device?.provider.slug ?? "deye";
-  const endpointPath = cmd.endpointPath(deviceExternalId).replace("/deye/", `/${providerSlug}/`);
+
+  const built = cmd.build(deviceExternalId, providerSlug);
+  if (!built) {
+    throw new Error(
+      `comando ${rem.commandType} no soportado por proveedor ${providerSlug}`,
+    );
+  }
+  const endpointPath = built.path;
+  const livePayload = built.payload;
 
   await prisma.remediation.update({
     where: { id: remediationId },
-    data: { status: "executing", executedBy: opts.userId ?? null, executionMode: mode },
+    data: {
+      status: "executing",
+      executedBy: opts.userId ?? null,
+      executionMode: mode,
+      // Reseteamos nextRetryAt al iniciar este intento.
+      nextRetryAt: null,
+    },
   });
 
   let result: Record<string, unknown>;
   let nextStatus: "executed" | "failed" = "executed";
   let providerOrderId: string | null = null;
+  let transientError = false;
 
   if (mode === "mock") {
-    // Simulación: no golpeamos el middleware. Generamos orderId sintético para
-    // que la UI muestre algo consistente y la auditoría quede cerrada.
     providerOrderId = `mock-${Date.now().toString(36)}`;
     result = {
       simulated: true,
       endpoint: endpointPath,
-      payload: rem.commandPayload,
+      payload: livePayload,
       providerOrderId,
       message: "Ejecución simulada — no se envió comando al dispositivo.",
     };
@@ -186,7 +270,7 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
     try {
       const raw = await mw<Record<string, unknown>>(endpointPath, {
         method: "POST",
-        body: JSON.stringify(rem.commandPayload),
+        body: JSON.stringify(livePayload),
       });
       providerOrderId =
         typeof raw?.orderId === "string"
@@ -200,13 +284,23 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
         response: raw,
         providerOrderId,
       };
-      // Si el middleware responde con success=false lo marcamos como failed.
       if (raw && typeof raw === "object" && "success" in raw && raw.success === false) {
         nextStatus = "failed";
       }
     } catch (err) {
       nextStatus = "failed";
-      if (err instanceof MiddlewareError) {
+      if (err instanceof MiddlewareRateLimitError) {
+        transientError = true;
+        result = {
+          simulated: false,
+          endpoint: endpointPath,
+          error: `rate-limited`,
+          retryAfterSec: err.retryAfterSec,
+          body: err.body.slice(0, 500),
+        };
+      } else if (err instanceof MiddlewareError) {
+        // 5xx también lo consideramos transitorio (vale la pena reintentar).
+        if (err.status >= 500) transientError = true;
         result = {
           simulated: false,
           endpoint: endpointPath,
@@ -216,6 +310,7 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
             "El middleware del hackathon no expone endpoints de escritura, por eso un 4xx aquí es esperado.",
         };
       } else {
+        transientError = true;
         result = {
           simulated: false,
           endpoint: endpointPath,
@@ -225,6 +320,16 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
     }
   }
 
+  // Calcular nextRetryAt si fue failed transitorio y no excedimos cap.
+  let nextRetryAt: Date | null = null;
+  let retryCount = rem.retryCount;
+  if (nextStatus === "failed" && transientError && retryCount < MAX_RETRIES) {
+    retryCount += 1;
+    // backoff exponencial: 2^n minutos, cap 30min
+    const minutes = Math.min(30, 2 ** retryCount);
+    nextRetryAt = new Date(Date.now() + minutes * 60_000);
+  }
+
   const updated = await prisma.remediation.update({
     where: { id: remediationId },
     data: {
@@ -232,6 +337,8 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
       executedAt: new Date(),
       providerOrderId,
       executionResult: result as object,
+      retryCount,
+      nextRetryAt,
     },
   });
   await prisma.remediationAudit.create({
@@ -240,7 +347,14 @@ export async function execute(remediationId: string, opts: ExecuteOpts = {}) {
       event: nextStatus === "executed" ? "executed" : "failed",
       actorUserId: opts.userId ?? null,
       actorKind: opts.userId ? "user" : "system",
-      payload: { mode, endpoint: endpointPath, summary: summaryFor(result) },
+      payload: {
+        mode,
+        endpoint: endpointPath,
+        summary: summaryFor(result),
+        isRetry: opts.isRetry ?? false,
+        retryCount,
+        nextRetryAt: nextRetryAt?.toISOString() ?? null,
+      },
     },
   });
   return updated;
@@ -290,6 +404,31 @@ export async function verify(remediationId: string) {
       event: "verified",
       actorKind: "system",
       payload: { outcome, detail: detail as object | null } as object,
+    },
+  });
+  return updated;
+}
+
+/**
+ * Re-aprueba una remediación failed para que el repair worker la reejecute.
+ * Solo aplica si retryCount < MAX_RETRIES y nextRetryAt está vencido.
+ */
+export async function markForRetry(remediationId: string) {
+  const rem = await prisma.remediation.findUnique({ where: { id: remediationId } });
+  if (!rem) throw new Error("remediation not found");
+  if (rem.status !== "failed") throw new Error(`solo failed se reintenta, estado=${rem.status}`);
+  if (rem.retryCount >= MAX_RETRIES) throw new Error("max retries alcanzado");
+
+  const updated = await prisma.remediation.update({
+    where: { id: remediationId },
+    data: { status: "approved" },
+  });
+  await prisma.remediationAudit.create({
+    data: {
+      remediationId,
+      event: "approved",
+      actorKind: "system",
+      payload: { reason: "retry-scheduled", retryCount: rem.retryCount },
     },
   });
   return updated;
