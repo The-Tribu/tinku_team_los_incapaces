@@ -21,6 +21,12 @@ export default function HomePage() {
           >
             Ir al Dashboard →
           </Link>
+          <Link
+            href="/deye-demo"
+            className="rounded-xl border border-green-600 bg-slate-900 px-6 py-3 font-semibold text-green-400 shadow-sm transition hover:bg-slate-800"
+          >
+            Demo DeyeCloud ⚡
+          </Link>
           <a
             href="https://techos.thetribu.dev"
             className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"

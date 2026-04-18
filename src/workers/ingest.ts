@@ -123,7 +123,8 @@ async function tick() {
   let fail = 0;
   for (const d of devices) {
     const slug = d.provider.slug as ProviderSlug;
-    if (!(slug in providers)) {
+    // deye_demo is handled by scrape-deye-demo.ts — skip here
+    if (d.provider.slug === "deye_demo" || !(slug in providers)) {
       fail++;
       continue;
     }

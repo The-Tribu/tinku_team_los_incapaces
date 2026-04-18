@@ -86,6 +86,13 @@ Abrir [http://localhost:3000](http://localhost:3000).
 npm run ingest
 ```
 
+```bash
+  Scripts disponibles:
+  npm run scrape:deye:pw            # headless, continuo (60 s)
+  npm run scrape:deye:pw -- --once  # un solo tick y sale
+  npm run scrape:deye:pw:headed     # browser visible (debug)
+```
+
 ---
 
 ## Variables de entorno

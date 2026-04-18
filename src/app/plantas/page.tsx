@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/sunhub/app-shell";
 import { StatusBadge } from "@/components/sunhub/status-badge";
+import { LiveRefresh } from "@/components/sunhub/live-refresh";
 import { listPlants } from "@/lib/fleet";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export default async function PlantsPage({
     <AppShell
       title="Plantas"
       subtitle={`${total} instalaciones · ${rows.length} mostrando`}
+      actions={<LiveRefresh intervalMs={30_000} />}
     >
       <section className="mb-4 flex flex-wrap items-center gap-3">
         <form action="/plantas" className="flex items-center gap-2">

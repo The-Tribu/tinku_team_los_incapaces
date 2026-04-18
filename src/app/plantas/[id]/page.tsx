@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/sunhub/app-shell";
 import { KpiCard } from "@/components/sunhub/kpi-card";
 import { StatusBadge } from "@/components/sunhub/status-badge";
+import { LiveRefresh } from "@/components/sunhub/live-refresh";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function PlantDetailPage({
     <AppShell
       title={plant.name}
       subtitle={`${plant.code} · ${plant.client.name} · ${plant.location ?? ""}`}
+      actions={<LiveRefresh intervalMs={30_000} />}
     >
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard

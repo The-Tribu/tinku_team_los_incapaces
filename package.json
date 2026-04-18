@@ -17,7 +17,11 @@
     "db:studio": "prisma studio",
     "mw:explore": "tsx scripts/explore-middleware.ts",
     "ingest:backfill": "tsx scripts/backfill-readings.ts",
-    "plants:sync": "tsx scripts/sync-real-plants.ts"
+    "plants:sync": "tsx scripts/sync-real-plants.ts",
+    "scrape:deye": "tsx src/workers/scrape-deye-demo.ts",
+    "scrape:deye:pw": "tsx src/workers/scrape-deye-playwright.ts",
+    "scrape:deye:pw:headed": "tsx src/workers/scrape-deye-playwright.ts --headed",
+    "pw:install": "playwright install chromium"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -42,6 +46,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.16.0",
     "eslint-config-next": "^15.1.0",
+    "playwright": "^1.59.1",
     "postcss": "^8.4.49",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.16",

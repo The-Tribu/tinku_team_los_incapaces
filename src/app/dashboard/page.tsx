@@ -3,6 +3,7 @@ import { AppShell } from "@/components/sunhub/app-shell";
 import { KpiCard } from "@/components/sunhub/kpi-card";
 import { GenerationChart } from "@/components/sunhub/generation-chart";
 import { FleetOverview } from "@/components/sunhub/fleet-overview";
+import { LiveRefresh } from "@/components/sunhub/live-refresh";
 import { getFleetSummary, getTopPlants } from "@/lib/fleet";
 import { prisma } from "@/lib/prisma";
 
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
     <AppShell
       title="Dashboard Global"
       subtitle={`${summary.totalPlants} plantas · actualizado hace pocos segundos`}
+      actions={<LiveRefresh intervalMs={30_000} />}
     >
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <KpiCard
