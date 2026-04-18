@@ -1,0 +1,100 @@
+[
+  {
+    "label": "growatt/plant/list",
+    "method": "GET",
+    "path": "/growatt/v1/plant/list",
+    "result": "Q�p\u0000 ��i�rP��}�\u0000;��>͞\u0004_�P�\u0019$��.3)ˌ��p5�ƼQ\u0005T�e�\u000eH2\t�B\u0011�\u000fFl�ɹ�\u001a=@RzF�N���A3`Z��1�CZ�\u0012�C�u���r\u0019�\u0010v�䫇�w�\u001a}Z�п�\u001d^s���W�\u0019��9E�r�}�:��\u0014zd�ȸ\u000b�*��?C\u001f���|�\u0018<����n�r�\u001c�i\u001b���N/�8�?C\u001f�n���z؅�����\u000b7\u0016� ]\u0014\u0000I\u0010sҤa\u0017\u001e��.���{��\u000f�A؅q>�XB\u001f�Ծ|\u001ev��ߣD�]�s�����\u001cô�>��q�Rꟹ)5\u0005��0���>�\u001c�[s]���߰\u000bw�n�r8�ZB\u001f\b�Z�\u00169�²��-��]\u0018�����i��H(��\u0018�ى=M�\b��M��؄�~ZJ=\u000f-a�\bU�!7��sy9\u0010��LDX�\u0014s�.N\\pL�,9�u��_οO�t0+\u000f�����}+Gl)!f�\u0011�e�(\u001a��F:JDq���8�2\u001d�-�c\u00171Qf�Jd���|��֫�����پy�\\����w\u001f7�\u001e<~v����{Rp\u0010\u0007���\b\bVҎ&\f#)�����c��[��H�wȾ�e�i����\u0019�r�\u0000CF\u0014\u0013�A��;c�!\u0015�D��\u001f-\r ,�2�����ys��We\u0019&zH\u0002Q+�\u0014Sy��HG���}�p���<*�Ug\u0007�035�ExH\u000fU��\u0010\tbo\r�\u0011�XN���j� �D\fd\u00134�9\u0010��\u0014),\u001d# ���T?�:\f\u000e?\"�.���\"\n��O��u�s�)�EOK�f���rٜ�\u0001Hi͛��v��7\u000f��U��\u0014�&b\u0003u\"v\u0018�: ��3��B���&\u0014�ǖ.\u0001\u0000\u0000f0�\u0014�]^�;�I��LU�ޙ�26\u000f�y���Ӥh\u0001�c\u0000�9\u0014E�\f�vɄ�\u0012�^���ԋ��#n�\u00011fȔ���D��}�*F��\u0003I�,�X!f�����dX��q\u001e��Y���t\u0012܂���\u0002#�F����\u0015��\tMD�Դ\u0010{����4�\u0004g@\u0016�\u0001Gԥ�sΜr�$�D�\u0010\u0000 ����`�i�W_6��\u0016=\u0018;0\u0016%PfD��]2\u0011\u001b���a���K\u001c\te��nFR�=[`_[\u000f��\\zY�ܒ\u000e��i;\u0003db��ZZ\u0011�PR4Mc\u0013a*��=�F�\u0004%ƔPN�~ᵹ�7$�Ф\u0005b� \u0012f�\u0013!1\u0013��\u0019�Hs�r8A�\u0001�T.F\u0012SRԌ9�a!4���g��\u0018[Li�a�A\u000f(Q����\u0000Y��\u0015n��׭\\T?1-7\u001a�0�\u001b\u000b���R��g\u0011�\u0012I�\u0018+�Q\u0012�m�2gAG�C�\u0014$s����?\u000fG_��M9_�׭𙈶�-bĠ\u0001\u0019N�kk�\u001dP�(\u0001�!���ȍL��\u000b+�\u0004\u0011u�;���՛�/ޠ�]�\u0016θ+PMHd\u0010�>|�\u0003sf�\bMj:���P�V��Y4��\u00128���K�Y\u0004\u0000B�� &<E\u0004������P��7��ӗ�����`3���\u001a��\u0001$!���\u001b�#�l�8o�\u001a���c�-���|j�\u000f�O0t�Z8k�@\u001e\u0000Y���A�0��!\u0017�W��A³������Z��a�*\tL��hL7�O�O�R�Si�n�8\u001c�򳌼Tލ\u0005�\u0004�U���\u0004�9\t;i'�\n�4YʓQ�)[��K����u��O���r+�\u001c\u000b\u001a\u0015!\u0017�&$\f�|<�\"I�\t��]b��8�J��\u001f\u0003\u0003"
+  },
+  {
+    "label": "growatt/plant/list?page=1",
+    "method": "GET",
+    "path": "/growatt/v1/plant/list?page=1",
+    "result": "Q\u001c+\u0000 ��6��͔�c9��)�\t��\u0018�ӒA1������'.\u0007�lO�`�m\u000b�6�\u0014\\�\u000bh�ay��/ܴh\u000e�4�\n���X��O\nqY�^\u0017��7Ĝ��.�\u0005x\u0000\u0006](\u0001�7�R\u0018�\u0004��\u001b��/����\u0007'-��\u0001�oD�w�QjB�\f����\u0013<��i\\>�\u0001\u0018�P�����\u0005��R/�]�/�����_>��\u0000\f�eX��5�\u0007�\u0003\u000f�!Ź����V\u0003��ߩҮ����\u0003o80H�<�\b\u001e�P_�\u0003�U\f�]s\u0006��Mc\u001eǡ\u001f�\u0012R����)�iN���\u0018\fa\u0019��f���\\���\u000b\fB��\u0013�.�\b\u001e\u0004\u0017��F\t\f�\u0012��\u0004^1H㰘�\u0006�F7�\u001b�\u0004�r\u0004�L�.��sݘ\rg+�j�l�b^�R\u0018k\u0004�\f��p�\\^\u0010*�3F)a���,o���,\u0019c�\\\u000f����yJ\u001b��r\u0010���0\u000f�EA��5:t�βU\t2��=դ\b�\u001d�V\u001as\u001c�����!��1�@R�����[W���pv6�n����ͳ���j���l�h}wF\n\u0010\u0014�\u0010\r\"��Z�F�?�,\t#܌�#'��\bF)�v�,�8��\u000fS�\u0016r\u001e�#�Q�Z�:8De��ٸ��1�\u0017i%�\u0012����T�qZK���$��P���*N�@\u000f8�h��d�q�SM�[\u001f���8�X\u001d�E֙�VRJ\u0011e��@\u000e5\u0003��\u00047o��\u001c�u�^Cꋡ\u0013A^\u000bb�l\u0014\u001a���h���\u0014�&��ϪNr�b�\u0012\f�o���NH�PI�p���^/�l�u�E\u0003��\u0000@���Z�o��4\u000b�\u000e!H�u��,Hx�{\u0017y\"_\u0003�´\u0017��k\b\u0005�i��)�u\u0003��\u000e�iH ��е����S,%�n��dl\u000eH\u0000RZ�l����|_�m��s\r\u001a\u0015h\u00025P\b�c�\u000bBn�\u0014W\u0005��a\rE���\u0007\u0000\u0000`������No\u00057ƔiJ^���:\u001e��j_nǵh�^�\u000b\u000e 6o�\f ���L(\u0011�(}3��|��}ū��h\tIA\u001c�bj��_G���ڃD���\u001a�,�n?�g�2L��X��|�V���;�\u000e�'(!Ԑ\u00026RVО���\b���퇚��#ͫ�\t�\"�����L�4\t�\u0010�\u0001\u0001\u0000�\t:���:����\u0017��L��Y�\n%#J\u001b�g\"vr\u001d�\u0017�Rs\u001d�-1\u001bʚ�� �ʔ\n̰uJ\u001fN�'/Ó\u001di�L�:S���ĭ�\"*�D=M�A\u0018�^�ǂ�\t�Y\u0004�\u0019�ձ�jnOj�F�'\u001d\u0010�S\bL�\rb\u0012�?\u001f�I�p\u001cv\t3���\u001a$1 L\u0013��n\u0010���X\u001f/\u001a�i\u001dF�v.\u0019�\n�)����\u0001RC�ƒ��嶍ws�&�\u0006*&ֱ�\u000b�+\u0005���H\u001f$}�/�S\u0012��F�)�0}��j0��d�/�b���PK����kݶ��m�\u000e�C�\u0014u ǫ�ּw@\u0001�\u0000�3�B�v��\\���L`���<���\\m��\u001a*\u001a�t��S�f�� .=�ہ9\u0019!B��\u001f�5O�n\t�̢��\u001fZX{ܾ��\r\u0000\bوA\\x�\b��彬a\u001a��j��:�o�?V�\u001a|h�\u0005�)rFA\u0012r�C�o`6̴�6vK\u00164e}-��������ɴ�\r�P��վR\u001e\u0014d\u0015\u000e\u0011��0��\u0003A�\tM\u000e\u0012��\u0017��O�Ղ�ab�\u0000\u0013\"ڜ鵾��Z��8���>ߦ�4�^+#���X�]@X��\u001b>p\u000f�!��^&\n�4<��HRz��N>\u001b���ڗun�O�x<\u0006<h\u0018C.\b\u0006\u0012���yK!�{H���\f���~�=��\r\u0003"
+  },
+  {
+    "label": "growatt/plant/data plant_id",
+    "method": "GET",
+    "path": "/growatt/v1/plant/data?plant_id=1356131",
+    "result": {
+      "error_msg": "",
+      "data": {
+        "total_energy": "93890",
+        "last_update_time": "2025-04-11 11:03:27",
+        "carbon_offset": "0",
+        "efficiency": "",
+        "monthly_energy": "0",
+        "peak_power_actual": 50,
+        "timezone": "GMT-5",
+        "current_power": 0,
+        "yearly_energy": "0",
+        "today_energy": "0"
+      },
+      "error_code": 0
+    }
+  },
+  {
+    "label": "growatt/plant/detail plantId",
+    "method": "GET",
+    "path": "/growatt/v1/plant/detail?plantId=1356131",
+    "error": "[404]       <!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\"> <html> <head> <meta http-equiv="
+  },
+  {
+    "label": "growatt/plant/detail plant_id",
+    "method": "GET",
+    "path": "/growatt/v1/plant/detail?plant_id=1356131",
+    "error": "[404]       <!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\"> <html> <head> <meta http-equiv="
+  },
+  {
+    "label": "growatt/device/list plant_id",
+    "method": "GET",
+    "path": "/growatt/v1/device/list?plant_id=1356131",
+    "result": "1\u0003�'\u0000@L�U՞��J�.�;`�\u0011|�@OO,��\"\r(kk��\u0012���\u000er8\u001e�x�@\u000f��\u001bn�ǭ�Vn��B��=ޖ7s�\u0000\n��]C~�(`g\u0003���6v��ܭ�^��MC��\u001b8�;�)f!O�\u0018*�,O;\bEF1w\b2�b�)���P�>��طw�p{��\u0015��\u001bd(�\u0011��ZT�W'v�P��O\r����q8跺s�b�O�\u0011\u000f\u001aP\u0010�\u001b�����\\[\u000b\u0005c���@�_M��Wp�\u0016��*�|P b�\u00176R6\u0016���\u001er\u001d�\u000fs\u000b�av8I�/�\u001b�ڰB�jH\\�������¥�\u0002����s��NC��\u0000\u0003"
+  },
+  {
+    "label": "growatt/plant/energy plantId",
+    "method": "GET",
+    "path": "/growatt/v1/plant/energy?plantId=1356131&date=2026-04-17",
+    "result": {
+      "error_msg": "error_plant ID is empty",
+      "data": "",
+      "error_code": 10003
+    }
+  },
+  {
+    "label": "growatt/plant/power plantId",
+    "method": "GET",
+    "path": "/growatt/v1/plant/power?plantId=1356131&date=2026-04-17",
+    "result": {
+      "error_msg": "error_The power station ID is empty or the time format is incorrect",
+      "data": "",
+      "error_code": 10003
+    }
+  },
+  {
+    "label": "deye/station/list empty",
+    "method": "POST",
+    "path": "/deye/v1.0/station/list",
+    "body": {},
+    "result": "\u0015�\u000b\u0000������tU�C�4�TtY���\u0015Y\u0019U���\u001e\tPPP� ��e�\u0000�^jj�\u0010���C\u001d�u8�\u0000\u001c�\u0005��$\u0006��&p_!�)�\b(��\u0000\u000e�u�\u0011�-ƴ���\u000el��m�CKoi�O\u0013��\r�?#^���Tt\u0005\u000e�vZ`�\u001c�N=�r�k�����'\u0018�pVp(tK0�n�ueSb\u001f�|��+�=��4pXj��k9P�Q\u000f^*Ԗ�R#\u0019���\f�\u001bg\u0006\u0017�\u000e�\u0014囹Y�\u0019��\u0003ǀCKs�娗6O\u0013�F(���o��Z,0_���#��P��\t8�-OO��\u0016k))�\\����`��������\u000f���/��!��Ӳ�iOw����h\u0006�a����\u001a�\\�K�%\u0018�Im=z4�\u0010\u0004�Cl�z�~��4cH��\u0015�J���z>�a,۲p���;w��\n#\u001cO\u001f��\u000e�aN���\\�s��\u001a�b\u0010\u001c\u0016Z��}��,�S���+�G-�b����\u000e\u001cꗒ��MjU�e��]1r\u0014FU�ӽ�HK&�.��\u001a��\u0012sp�\u001etFY-\\�p�C\u0001M0ʪ5��$qO˒\u0018j��7&�S:�\u0003rqo�����F9�e������������r�FZ�\u001cj�RziP�����\u001a\u0019�v�\b���Z�v@��\u0014�\u000bo\fjd���Ѝ\u0006��3D�\u000e�^J���LV�'��s�����EB�\b��=�G�7A���5�I�2z�8���^z�\u0002jod\u0000�rxG1�2\u0011;Sa���[�7�HT%�\u0013�\u0019B��y�\u001b��5\\ا�fC\nq}\u0003�+�#;\b�K;�щ X3��\u0007�@�(\\�\u0001�'ܕ\u001a��l'Ρ��\u001e��R���\u00184�sv9R����,m\u0005jùι�Ѕ~_�To���>l�t\n\t_�x����Jk���+.�L\r¥��λ����^hk%> �ï�\u000e֠�6X,\f��\u000fE��\f]�\u0007�F���\u0014Ns~@�u��\u0003��#��gF��}Z)J�K[)LP^�f�:�k�\u0010\u0019��\f�`I|\u0003"
+  },
+  {
+    "label": "deye/station/list paged",
+    "method": "POST",
+    "path": "/deye/v1.0/station/list",
+    "body": {
+      "page": 1,
+      "size": 20
+    },
+    "result": "\u0015�\u000b\u0000������tU�C�4�TtY���\u0015Y\u0019����\u001e\t�PP� a�i�\u0000�^jj�\u0010���C\u001d�u8�\u0000\u001c�\u0005��$\u0006��&p�a�s�\u0011P\u0010�\u0001\u001c��\u0002#��4�u\u0005.w`c�m�\u001cZ�{�k�a\u0004T\u0006\u0015�4��D^{��k�\f��v꩖CZ;�|�4è���C�k�\u0011v�ו͑}����^��i%��C�\u0013�Tˁ:�z�R��\u001cr���\u0005V\u0016\u0018_;3�\u0010tP�x7��z�\b�\u001f8\u0006\u001cZ\\R-G��y�a4B��t���b���5�4�/wu�������PzlS-%N=�ry�E\u0018�nw�����n���\b\u001cRY;�\u001c�=�hJ�\u0005F3x\u000ek��O�ب��\\�5Nj�ѣ\u0019� �\u001c�\u0016���W�Q3�$j]\u0001����^Χ=�e˙��E޹S�V\u0018�x��~w\u0000\u000eK,���Z\u001e��`\u0014���i�O��z� NqV;��\u001e�t���_NGw�P��؎nR������b�(��\u0000�[O\u0013�D�ml-6\u0002�%��n=茲Z�Dᴇ\u0002�`�Uk\u0000{I�r�\f5��k\u0013�)\u001d�\u0001��7J{��z��wŲ���������x�b�}#�T\u000e�C)�4�m~���,�F\u0006�]0B�ೖ�\u001dP(-���\u001b�\u001a\u0019�j+t����\fQ�\u0003���~�_8�\u0015����\u001c�ٞ��P7�0x��Q�MP��`�hҨ�\u001e4\u000e>4��^���\u001b\u0019��\u001c�Ҕb������i�b�\u0016<�7\u0012U\t�\u0004|d�\u0010�v^�\u0006�{��3�\u0014�bH!�o`r�vd\u0007�pi�4:\u0011\u0004kF\u0013�`\u0010(\u0019�\u000b2��R����9t�܃r^\n\u0013�\u001b��{�.M���69K[��p�s.(t���2�k*��\u000f[*�B$���s|�����\u0015\u0017m�\u0006��Z[�]�RZ[/��\u0012\u001f\u0010���R\u0007k�[\u001b,\u0016�c��&��\f]�\u0007�F���\u0014Ns~@�u��\u0003��'\n�ό\f���R�(��R���`͌u��\b!2Fs\u0019\u0002����\u0001"
+  },
+  {
+    "label": "deye/station/list snake",
+    "method": "POST",
+    "path": "/deye/v1.0/station/list",
+    "body": {
+      "page_no": 1,
+      "page_size": 20
+    },
+    "error": "[500] {\"code\":\"2101008\",\"msg\":\"invalid param type\",\"success\":false,\"requestId\":\"af042e17246ef5a2\"}"
+  }
+]
