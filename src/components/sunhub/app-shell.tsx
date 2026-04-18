@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Plus,
   Settings,
-  Sparkles,
   Sun,
   Timer,
   Users,
@@ -20,6 +19,7 @@ import { getSessionUser, type Role } from "@/lib/auth";
 import { UserMenu } from "./user-menu";
 import { AlarmBell } from "./alarm-bell";
 import { JobsIndicator } from "./jobs-indicator";
+import { CopilotFab } from "./copilot-fab";
 
 type NavItem = {
   href: string;
@@ -33,7 +33,6 @@ const NAV: NavItem[] = [
   { href: "/plantas", label: "Plantas", icon: <Sun className="h-4 w-4" /> },
   { href: "/alarmas", label: "Alarmas", icon: <AlertTriangle className="h-4 w-4" /> },
   { href: "/predicciones", label: "Predicción", icon: <Timer className="h-4 w-4" /> },
-  { href: "/copilot", label: "Copilot AI", icon: <Sparkles className="h-4 w-4" /> },
   { href: "/reportes", label: "Reportes", icon: <FileText className="h-4 w-4" /> },
   { href: "/clima", label: "Clima", icon: <CloudSun className="h-4 w-4" /> },
   { href: "/costo-beneficio", label: "Proveedores", icon: <Wallet className="h-4 w-4" /> },
@@ -103,6 +102,7 @@ export async function AppShell({
         </header>
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
+      <CopilotFab />
     </div>
   );
 }

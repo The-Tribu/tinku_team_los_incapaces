@@ -304,18 +304,29 @@ export default async function CostoBeneficioPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[10%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+            </colgroup>
             <thead>
-              <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="pb-3 font-semibold">Proveedor</th>
-                <th className="pb-3 text-right font-semibold">Flota</th>
-                <th className="pb-3 font-semibold">PR 7d</th>
-                <th className="pb-3 font-semibold">Uptime 7d</th>
-                <th className="pb-3 text-right font-semibold">Alarmas</th>
-                <th className="pb-3 font-semibold">CAPEX/kW</th>
-                <th className="pb-3 text-right font-semibold">TCO 10a</th>
-                <th className="pb-3 text-right font-semibold">Payback</th>
-                <th className="pb-3 text-right font-semibold">Score</th>
+              <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500">
+                <th className="pb-3 text-left font-semibold">Proveedor</th>
+                <th className="pb-3 text-center font-semibold">Flota</th>
+                <th className="pb-3 text-center font-semibold">PR 7d</th>
+                <th className="pb-3 text-center font-semibold">Uptime 7d</th>
+                <th className="pb-3 text-center font-semibold">Alarmas</th>
+                <th className="pb-3 text-center font-semibold">CAPEX/kW</th>
+                <th className="pb-3 text-center font-semibold">TCO 10a</th>
+                <th className="pb-3 text-center font-semibold">Payback</th>
+                <th className="pb-3 text-center font-semibold">Score</th>
               </tr>
             </thead>
             <tbody>
@@ -326,7 +337,7 @@ export default async function CostoBeneficioPage() {
                 const alarmRate = r.devices > 0 ? r.openAlarms / r.devices : 0;
                 return (
                   <tr key={r.slug} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60">
-                    <td className="py-4">
+                    <td className="py-4 align-middle">
                       <div className="flex items-center gap-2">
                         {idx === 0 ? (
                           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-sm">
@@ -338,31 +349,29 @@ export default async function CostoBeneficioPage() {
                           </span>
                         )}
                         <BrandChip slug={r.slug} size="sm" />
-                        <span className="text-xs text-slate-500">warranty {cat?.warrantyYears ?? "—"}a</span>
+                        <span className="hidden text-xs text-slate-500 lg:inline">warranty {cat?.warrantyYears ?? "—"}a</span>
                       </div>
                     </td>
-                    <td className="py-4 text-right tabular-nums">
-                      <div className="text-sm font-semibold text-slate-900">{r.plants} <span className="text-xs font-normal text-slate-400">plantas</span></div>
+                    <td className="py-4 text-center align-middle tabular-nums">
+                      <div className="text-sm font-semibold text-slate-900">{r.plants}</div>
                       <div className="text-[11px] text-slate-500">{r.capacityKwp.toFixed(0)} kWp</div>
                     </td>
-                    <td className="py-4">
-                      <MiniBar value={r.avgPr} max={100} tone={r.avgPr >= 75 ? "emerald" : r.avgPr >= 50 ? "amber" : "rose"} label={`${r.avgPr.toFixed(1)}%`} />
+                    <td className="py-4 align-middle">
+                      <CellBar value={r.avgPr} max={100} tone={r.avgPr >= 75 ? "emerald" : r.avgPr >= 50 ? "amber" : "rose"} label={`${r.avgPr.toFixed(1)}%`} />
                     </td>
-                    <td className="py-4">
-                      <MiniBar value={r.avgUptime} max={100} tone={r.avgUptime >= 95 ? "emerald" : r.avgUptime >= 70 ? "amber" : "rose"} label={`${r.avgUptime.toFixed(1)}%`} />
+                    <td className="py-4 align-middle">
+                      <CellBar value={r.avgUptime} max={100} tone={r.avgUptime >= 95 ? "emerald" : r.avgUptime >= 70 ? "amber" : "rose"} label={`${r.avgUptime.toFixed(1)}%`} />
                     </td>
-                    <td className="py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 text-sm font-semibold tabular-nums text-slate-900">
-                        {r.openAlarms}
-                      </div>
+                    <td className="py-4 text-center align-middle">
+                      <div className="text-sm font-semibold tabular-nums text-slate-900">{r.openAlarms}</div>
                       <div className={`text-[11px] ${alarmRate > 1 ? "text-rose-600" : alarmRate > 0.3 ? "text-amber-600" : "text-slate-500"}`}>
-                        {alarmRate.toFixed(2)}/dispositivo
+                        {alarmRate.toFixed(2)}/disp.
                       </div>
                     </td>
-                    <td className="py-4">
+                    <td className="py-4 align-middle">
                       {cat ? (
-                        <div className="min-w-[110px]">
-                          <div className="font-mono text-xs font-semibold text-slate-900">
+                        <div className="mx-auto max-w-[120px]">
+                          <div className="text-center font-mono text-xs font-semibold text-slate-900">
                             ${cat.capexPerKw.toLocaleString("es-CO")}
                           </div>
                           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
@@ -379,33 +388,35 @@ export default async function CostoBeneficioPage() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="block text-center text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-4 text-right">
+                    <td className="py-4 text-center align-middle">
                       {proj ? (
                         <>
                           <div className="text-sm font-semibold tabular-nums text-slate-900">{formatCOP(proj.tco)}</div>
-                          <div className="text-[11px] text-slate-500">${proj.costPerKwh.toFixed(0)} / kWh gen.</div>
+                          <div className="text-[11px] text-slate-500">${proj.costPerKwh.toFixed(0)} / kWh</div>
                         </>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-4 text-right">
+                    <td className="py-4 text-center align-middle">
                       {proj ? (
                         <>
                           <div className="text-sm font-semibold tabular-nums text-slate-900">
                             {proj.paybackYears.toFixed(1)}a
                           </div>
-                          <div className="text-[11px] text-emerald-700">+{formatCOP(proj.netProfit)}</div>
+                          <div className="text-[11px] font-medium text-emerald-700">+{formatCOP(proj.netProfit)}</div>
                         </>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-4 pl-3 text-right">
-                      <ScoreBadge score={r.score} />
+                    <td className="py-4 align-middle">
+                      <div className="flex justify-center">
+                        <ScoreBadge score={r.score} />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -582,6 +593,43 @@ function MiniBar({
   );
 }
 
+/**
+ * Versión centrada del MiniBar para celdas de tabla: label sobre la barra,
+ * ambos alineados al centro horizontal de la celda. Ancho acotado para que
+ * la barra no invada las columnas contiguas.
+ */
+function CellBar({
+  value,
+  max,
+  tone,
+  label,
+}: {
+  value: number;
+  max: number;
+  tone: "emerald" | "amber" | "rose";
+  label: string;
+}) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  const barColor = {
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+    rose: "bg-rose-500",
+  }[tone];
+  const textColor = {
+    emerald: "text-emerald-700",
+    amber: "text-amber-700",
+    rose: "text-rose-700",
+  }[tone];
+  return (
+    <div className="mx-auto max-w-[110px]">
+      <div className={`text-center text-sm font-semibold tabular-nums ${textColor}`}>{label}</div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(3, pct)}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function ScoreBadge({ score }: { score: number }) {
   const tone =
     score >= 80
@@ -591,11 +639,11 @@ function ScoreBadge({ score }: { score: number }) {
         : { text: "text-rose-700", bg: "bg-rose-100", ring: "ring-rose-200" };
   const pct = Math.max(0, Math.min(100, score));
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-center gap-1">
       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${tone.bg} ${tone.text} ${tone.ring}`}>
         {score}/100
       </span>
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
         <div
           className={`h-full rounded-full ${
             score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-amber-500" : "bg-rose-500"

@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 
 const STYLES: Record<string, string> = {
   growatt: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  huawei: "bg-rose-50 text-rose-800 ring-rose-200",
+  huawei: "bg-fuchsia-50 text-fuchsia-800 ring-fuchsia-200",
   deye: "bg-sky-50 text-sky-800 ring-sky-200",
   hoymiles: "bg-amber-50 text-amber-800 ring-amber-200",
   srne: "bg-violet-50 text-violet-800 ring-violet-200",
@@ -42,7 +42,7 @@ export function BrandChip({
       <span
         className={cn("rounded-full", {
           "bg-emerald-500": key === "growatt",
-          "bg-rose-500": key === "huawei",
+          "bg-fuchsia-500": key === "huawei",
           "bg-sky-500": key === "deye",
           "bg-amber-500": key === "hoymiles",
           "bg-violet-500": key === "srne",

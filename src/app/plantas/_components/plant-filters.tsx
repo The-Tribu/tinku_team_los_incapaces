@@ -2,9 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { BrandChip } from "@/components/sunhub/brand-chip";
 
 export type PlantFiltersProps = {
   brands: string[];
@@ -150,80 +149,126 @@ export function PlantFilters({
         ) : null}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+      <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+        {/* Marca — chips neutros con punto de color identificador. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Marca
           </span>
-          {brands.map((b) => {
-            const active = activeBrandSet.has(b);
-            return (
-              <button
-                key={b}
-                type="button"
-                onClick={() => toggleBrand(b)}
-                className={cn(
-                  "rounded-full transition",
-                  active
-                    ? "ring-2 ring-emerald-400 ring-offset-1"
-                    : "opacity-70 hover:opacity-100",
-                )}
-                aria-pressed={active}
-              >
-                <BrandChip slug={b} size="sm" />
-              </button>
-            );
-          })}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {brands.map((b) => {
+              const active = activeBrandSet.has(b);
+              const label = BRAND_LABELS[b.toLowerCase()] ?? b;
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => toggleBrand(b)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                    active
+                      ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-1.5 w-1.5 rounded-full",
+                      BRAND_DOT[b.toLowerCase()] ?? "bg-slate-400",
+                    )}
+                  />
+                  {label}
+                  {active ? <Check className="h-3 w-3" /> : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+        {/* Estado — semántica de color sólo al seleccionar. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Estado
           </span>
-          <button
-            type="button"
-            onClick={() => setStatus(null)}
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-medium transition",
-              !activeStatus
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-            )}
-          >
-            Todos
-          </button>
-          {statuses.map((s) => {
-            const active = activeStatus === s.slug;
-            const colors: Record<string, string> = {
-              online: active
-                ? "bg-emerald-600 text-white"
-                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-              warning: active
-                ? "bg-amber-600 text-white"
-                : "bg-amber-50 text-amber-700 hover:bg-amber-100",
-              degraded: active
-                ? "bg-orange-600 text-white"
-                : "bg-orange-50 text-orange-700 hover:bg-orange-100",
-              offline: active
-                ? "bg-red-600 text-white"
-                : "bg-red-50 text-red-700 hover:bg-red-100",
-            };
-            return (
-              <button
-                key={s.slug}
-                type="button"
-                onClick={() => setStatus(s.slug)}
-                className={cn(
-                  "rounded-full px-2.5 py-0.5 text-xs font-medium transition",
-                  colors[s.slug] ?? "bg-slate-100 text-slate-700",
-                )}
-              >
-                {s.label}
-              </button>
-            );
-          })}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setStatus(null)}
+              aria-pressed={!activeStatus}
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-medium transition",
+                !activeStatus
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+              )}
+            >
+              Todos
+            </button>
+            {statuses.map((s) => {
+              const active = activeStatus === s.slug;
+              const sel = STATUS_SELECTED[s.slug] ?? "bg-slate-900 text-white";
+              const dot = STATUS_DOT[s.slug] ?? "bg-slate-400";
+              return (
+                <button
+                  key={s.slug}
+                  type="button"
+                  onClick={() => setStatus(s.slug)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                    active
+                      ? cn(sel, "border-transparent shadow-sm")
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-1.5 w-1.5 rounded-full",
+                      active ? "bg-white/80" : dot,
+                    )}
+                  />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+// Paletas controladas fuera del JSX para mantener el componente legible.
+// `dot` = identificador permanente (pequeño), `selected` = fill al activar.
+const BRAND_LABELS: Record<string, string> = {
+  growatt: "Growatt",
+  huawei: "Huawei",
+  deye: "Deye",
+  hoymiles: "Hoymiles",
+  srne: "SRNE",
+  solarman: "Solarman",
+};
+
+const BRAND_DOT: Record<string, string> = {
+  growatt: "bg-emerald-500",
+  huawei: "bg-fuchsia-500",
+  deye: "bg-sky-500",
+  hoymiles: "bg-amber-500",
+  srne: "bg-violet-500",
+  solarman: "bg-indigo-500",
+};
+
+const STATUS_DOT: Record<string, string> = {
+  online: "bg-emerald-500",
+  warning: "bg-amber-500",
+  degraded: "bg-orange-500",
+  offline: "bg-rose-500",
+};
+
+const STATUS_SELECTED: Record<string, string> = {
+  online: "bg-emerald-600 text-white",
+  warning: "bg-amber-600 text-white",
+  degraded: "bg-orange-600 text-white",
+  offline: "bg-rose-600 text-white",
+};

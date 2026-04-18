@@ -10,7 +10,7 @@ export type BrandBar = {
 
 const TONE: Record<string, string> = {
   growatt: "bg-emerald-500",
-  huawei: "bg-rose-500",
+  huawei: "bg-fuchsia-500",
   deye: "bg-sky-500",
   hoymiles: "bg-amber-500",
   srne: "bg-violet-500",
