@@ -1,6 +1,9 @@
 /**
  * Open-Meteo integration. Free, no API key. We pull hourly radiation forecast
  * and convert it to an expected-generation curve per plant using installed kWp.
+ *
+ * También traemos precipitación y viento (hourly + daily) para alimentar el
+ * score de "día ideal de mantenimiento" en el módulo de clima.
  */
 
 export type WeatherForecast = {
@@ -9,6 +12,8 @@ export type WeatherForecast = {
     cloudCoverPct: number;
     ghiWm2: number;
     tempC: number;
+    precipProbPct: number;
+    windKmh: number;
     expectedKwAc: number; // estimated AC power with plant capacity + 0.80 PR
   }>;
   daily: Array<{
@@ -17,6 +22,11 @@ export type WeatherForecast = {
     expectedKwhDay: number;
     sunriseLocal: string;
     sunsetLocal: string;
+    precipMm: number;
+    precipProbMaxPct: number;
+    windMaxKmh: number;
+    tempMaxC: number;
+    tempMinC: number;
   }>;
   updatedAt: string;
 };
@@ -27,12 +37,19 @@ type OMResponse = {
     cloud_cover: number[];
     shortwave_radiation: number[];
     temperature_2m: number[];
+    precipitation_probability: number[];
+    wind_speed_10m: number[];
   };
   daily: {
     time: string[];
     shortwave_radiation_sum: number[];
     sunrise: string[];
     sunset: string[];
+    precipitation_sum: number[];
+    precipitation_probability_max: number[];
+    wind_speed_10m_max: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
   };
 };
 
@@ -40,9 +57,9 @@ export async function getWeatherForPlant(lat: number, lng: number, capacityKwp: 
   const PR = 0.8; // performance ratio assumption
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
-    `&hourly=cloud_cover,shortwave_radiation,temperature_2m` +
-    `&daily=shortwave_radiation_sum,sunrise,sunset` +
-    `&timezone=America%2FBogota&forecast_days=5`;
+    `&hourly=cloud_cover,shortwave_radiation,temperature_2m,precipitation_probability,wind_speed_10m` +
+    `&daily=shortwave_radiation_sum,sunrise,sunset,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,temperature_2m_max,temperature_2m_min` +
+    `&timezone=America%2FBogota&forecast_days=7`;
   const res = await fetch(url, { next: { revalidate: 1800 } });
   if (!res.ok) throw new Error(`open-meteo ${res.status}`);
   const data = (await res.json()) as OMResponse;
@@ -55,6 +72,8 @@ export async function getWeatherForPlant(lat: number, lng: number, capacityKwp: 
       cloudCoverPct: data.hourly.cloud_cover[i] ?? 0,
       ghiWm2: ghi,
       tempC: data.hourly.temperature_2m[i] ?? 0,
+      precipProbPct: data.hourly.precipitation_probability?.[i] ?? 0,
+      windKmh: data.hourly.wind_speed_10m?.[i] ?? 0,
       expectedKwAc,
     };
   });
@@ -63,10 +82,15 @@ export async function getWeatherForPlant(lat: number, lng: number, capacityKwp: 
     const ghiSum = data.daily.shortwave_radiation_sum[i] ?? 0;
     return {
       date: d,
-      ghiKwhM2: ghiSum / 1000, // MJ→kWh: OM returns MJ/m², convert via /3.6; but OM actually returns MJ/m². We use shortwave_radiation_sum (MJ/m²) ≈ GHI kWh/m² / 3.6. For demo, we approximate kWhDay = (GHI_MJm2 / 3.6) * capacityKwp * PR.
+      ghiKwhM2: ghiSum / 1000,
       expectedKwhDay: (ghiSum / 3.6) * capacityKwp * PR,
       sunriseLocal: data.daily.sunrise[i],
       sunsetLocal: data.daily.sunset[i],
+      precipMm: data.daily.precipitation_sum?.[i] ?? 0,
+      precipProbMaxPct: data.daily.precipitation_probability_max?.[i] ?? 0,
+      windMaxKmh: data.daily.wind_speed_10m_max?.[i] ?? 0,
+      tempMaxC: data.daily.temperature_2m_max?.[i] ?? 0,
+      tempMinC: data.daily.temperature_2m_min?.[i] ?? 0,
     };
   });
 

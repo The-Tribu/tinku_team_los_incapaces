@@ -1,13 +1,17 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import {
+  CalendarCheck,
   CloudRain,
   CloudSun,
   Coins,
   Info,
   MinusCircle,
+  Sparkles,
   Thermometer,
   TrendingDown,
+  Wind,
+  Wrench,
   Zap,
 } from "lucide-react";
 import {
@@ -37,8 +41,27 @@ type Plant = {
   lat?: number | null;
   lng?: number | null;
 };
-type DailyRow = { date: string; ghiKwhM2: number; expectedKwhDay: number; sunriseLocal: string; sunsetLocal: string };
-type HourlyRow = { ts: string; cloudCoverPct: number; ghiWm2: number; tempC: number; expectedKwAc: number };
+type DailyRow = {
+  date: string;
+  ghiKwhM2: number;
+  expectedKwhDay: number;
+  sunriseLocal: string;
+  sunsetLocal: string;
+  precipMm: number;
+  precipProbMaxPct: number;
+  windMaxKmh: number;
+  tempMaxC: number;
+  tempMinC: number;
+};
+type HourlyRow = {
+  ts: string;
+  cloudCoverPct: number;
+  ghiWm2: number;
+  tempC: number;
+  precipProbPct: number;
+  windKmh: number;
+  expectedKwAc: number;
+};
 
 // Tarifa promedio COP/kWh usada para convertir energía a lucro cesante.
 const TARIFF_COP_PER_KWH = 680;
@@ -163,6 +186,89 @@ const BRAND_IMPACT = [
   { slug: "srne", delta: -13 },
 ];
 
+// === Scoring de "día ideal de mantenimiento" =========================
+// Pondera 4 factores sobre cada día futuro. Score 0-100: mayor = mejor día
+// para agendar una visita. Se usa para rankear 5 días y escoger el ganador.
+//
+//  · Lucro cesante (40%) — inverso a la energía esperada ese día.
+//  · Riesgo de lluvia (30%) — probabilidad máxima + mm acumulados.
+//  · Viento (15%)        — por encima de 25 km/h ya no es seguro subir a techo.
+//  · Temperatura (15%)   — óptimo técnico 18-26 °C (fuera de rango penaliza).
+//
+// También devolvemos las "razones" legibles que se muestran en la card.
+type MaintenanceBreakdown = {
+  genScore: number;
+  rainScore: number;
+  windScore: number;
+  tempScore: number;
+};
+type MaintenanceScored = {
+  day: DailyRow;
+  total: number;
+  breakdown: MaintenanceBreakdown;
+  reasons: string[];
+  warnings: string[];
+  lostKwh: number;
+  lostCOP: number;
+};
+
+function clamp(n: number, min = 0, max = 100): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+function scoreMaintenanceDay(day: DailyRow, fleetMaxKwh: number): MaintenanceScored {
+  // Normalizamos generación a [0,100] con base en el pico de la ventana:
+  // días de baja generación = score alto (menor lucro cesante al parar).
+  const genRatio = fleetMaxKwh > 0 ? day.expectedKwhDay / fleetMaxKwh : 1;
+  const genScore = clamp((1 - genRatio) * 100);
+
+  // Lluvia: combinamos prob. máxima (0-100) y mm acumulados (saturados a 20 mm).
+  const rainProbPart = clamp(100 - day.precipProbMaxPct);
+  const rainMmPart = clamp(100 - (day.precipMm / 20) * 100);
+  const rainScore = 0.6 * rainProbPart + 0.4 * rainMmPart;
+
+  // Viento: 0 km/h = 100, 25 km/h = 50, >40 km/h = 0 (trabajo en alturas inseguro).
+  const windScore = clamp(100 - (day.windMaxKmh / 40) * 100);
+
+  // Temperatura: óptimo 22 °C, penalizamos distancia al óptimo (5°C = -20 pts).
+  const tempAvg = (day.tempMaxC + day.tempMinC) / 2;
+  const tempPenalty = Math.abs(tempAvg - 22) * 4;
+  const tempScore = clamp(100 - tempPenalty);
+
+  const total = clamp(
+    genScore * 0.4 + rainScore * 0.3 + windScore * 0.15 + tempScore * 0.15,
+  );
+
+  const reasons: string[] = [];
+  const warnings: string[] = [];
+  if (genScore >= 65) reasons.push("Baja generación esperada · menor lucro cesante");
+  if (rainScore >= 70) reasons.push(`Prob. lluvia ${day.precipProbMaxPct.toFixed(0)}% · condiciones secas`);
+  else if (day.precipProbMaxPct >= 60) warnings.push(`Lluvia probable (${day.precipProbMaxPct.toFixed(0)}%)`);
+  if (windScore >= 70) reasons.push(`Viento ${day.windMaxKmh.toFixed(0)} km/h · seguro para techo`);
+  else if (day.windMaxKmh >= 30) warnings.push(`Viento fuerte ${day.windMaxKmh.toFixed(0)} km/h`);
+  if (tempScore >= 75) reasons.push(`Temperatura ${tempAvg.toFixed(0)}°C · confort técnico`);
+  else if (tempAvg >= 32) warnings.push(`Calor extremo ${day.tempMaxC.toFixed(0)}°C`);
+  else if (tempAvg <= 12) warnings.push(`Frío marcado ${day.tempMinC.toFixed(0)}°C`);
+
+  const lostKwh = day.expectedKwhDay;
+  const lostCOP = lostKwh * TARIFF_COP_PER_KWH;
+
+  return {
+    day,
+    total: Math.round(total),
+    breakdown: {
+      genScore: Math.round(genScore),
+      rainScore: Math.round(rainScore),
+      windScore: Math.round(windScore),
+      tempScore: Math.round(tempScore),
+    },
+    reasons,
+    warnings,
+    lostKwh,
+    lostCOP,
+  };
+}
+
 export function WeatherConsole({ plants }: { plants: Plant[] }) {
   const [plantId, setPlantId] = useState(plants[0]?.id ?? "");
   const [loading, setLoading] = useState(false);
@@ -195,18 +301,27 @@ export function WeatherConsole({ plants }: { plants: Plant[] }) {
 
   // Sólo mostramos días futuros (hoy excluido — ya no se puede agendar) y
   // limitamos a 5 para la vista. Se calculan lucro cesante y ranking.
-  const { futureDays, maintenanceDay, worstDay, savingsCOP } = useMemo(() => {
+  const { futureDays, maintenanceDay, worstDay, savingsCOP, rankedDays } = useMemo(() => {
     const today = startOfToday();
     const future = daily.filter((d) => parseLocalDate(d.date).getTime() > today.getTime()).slice(0, 5);
     if (future.length === 0) {
-      return { futureDays: [], maintenanceDay: null, worstDay: null, savingsCOP: 0 };
+      return { futureDays: [], maintenanceDay: null, worstDay: null, savingsCOP: 0, rankedDays: [] };
     }
-    const sorted = [...future].sort((a, b) => a.expectedKwhDay - b.expectedKwhDay);
-    const best = sorted[0];
-    const worst = sorted[sorted.length - 1];
-    const saves = Math.max(0, (worst.expectedKwhDay - best.expectedKwhDay) * TARIFF_COP_PER_KWH);
-    return { futureDays: future, maintenanceDay: best, worstDay: worst, savingsCOP: saves };
+    const fleetMaxKwh = Math.max(...future.map((d) => d.expectedKwhDay));
+    const scored = future.map((d) => scoreMaintenanceDay(d, fleetMaxKwh));
+    const ranked = [...scored].sort((a, b) => b.total - a.total);
+    const best = ranked[0];
+    const worst = ranked[ranked.length - 1];
+    const saves = Math.max(0, (worst.day.expectedKwhDay - best.day.expectedKwhDay) * TARIFF_COP_PER_KWH);
+    return {
+      futureDays: future,
+      maintenanceDay: best.day,
+      worstDay: worst.day,
+      savingsCOP: saves,
+      rankedDays: ranked,
+    };
   }, [daily]);
+  const bestScored = rankedDays[0] ?? null;
 
   // === KPIs nacionales (estimados) ===
   const fleetKpis = useMemo(() => {
@@ -404,6 +519,199 @@ export function WeatherConsole({ plants }: { plants: Plant[] }) {
           <span>0% (cielo despejado)</span>
           <span>75% (nubosidad máxima)</span>
         </div>
+      </SectionCard>
+
+      {/* === Día ideal de mantenimiento === */}
+      <SectionCard
+        title="Día ideal de mantenimiento"
+        subtitle={`Score compuesto · ${plant?.label ?? "planta seleccionada"} · ventana ${futureDays.length} días`}
+        actions={
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+            <Sparkles className="h-3 w-3" />
+            Predicción clima + planta
+          </span>
+        }
+      >
+        {bestScored ? (
+          <div className="grid gap-4 lg:grid-cols-5">
+            {/* Día ganador */}
+            <div className="lg:col-span-2 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-sunhub-surface p-4">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                <CalendarCheck className="h-3.5 w-3.5" />
+                Mejor día
+              </div>
+              <div className="mt-1 font-heading text-2xl font-semibold text-slate-900">
+                {formatLocal(bestScored.day.date, { weekday: "long", day: "numeric", month: "long" })}
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="font-heading text-4xl font-bold text-emerald-700">
+                  {bestScored.total}
+                </span>
+                <span className="text-sm font-medium text-emerald-800">/100</span>
+                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                  <Wrench className="h-3 w-3" />
+                  Agendar visita
+                </span>
+              </div>
+              <div className="mt-3 space-y-1 text-xs text-slate-700">
+                {bestScored.reasons.slice(0, 3).map((r, i) => (
+                  <div key={i} className="flex items-start gap-1.5">
+                    <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    <span>{r}</span>
+                  </div>
+                ))}
+                {bestScored.reasons.length === 0 ? (
+                  <div className="text-slate-500">Condiciones mixtas — revisa el detalle por factor.</div>
+                ) : null}
+                {bestScored.warnings.map((w, i) => (
+                  <div key={`w-${i}`} className="flex items-start gap-1.5 text-amber-700">
+                    <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    <span>{w}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                <div className="rounded-lg bg-white/70 px-2 py-1.5 ring-1 ring-emerald-100">
+                  <div className="text-slate-500">Gen. ese día</div>
+                  <div className="font-mono text-xs font-semibold text-slate-900">
+                    {Math.round(bestScored.day.expectedKwhDay).toLocaleString("es-CO")} kWh
+                  </div>
+                </div>
+                <div className="rounded-lg bg-white/70 px-2 py-1.5 ring-1 ring-emerald-100">
+                  <div className="text-slate-500">Ahorro vs. peor día</div>
+                  <div className="font-mono text-xs font-semibold text-emerald-700">
+                    {formatCOP(savingsCOP)}
+                  </div>
+                </div>
+              </div>
+              {/* Factores */}
+              <div className="mt-3 space-y-1.5">
+                {[
+                  { label: "Lucro cesante", value: bestScored.breakdown.genScore, weight: "40%", Icon: Coins },
+                  { label: "Riesgo lluvia", value: bestScored.breakdown.rainScore, weight: "30%", Icon: CloudRain },
+                  { label: "Viento", value: bestScored.breakdown.windScore, weight: "15%", Icon: Wind },
+                  { label: "Temperatura", value: bestScored.breakdown.tempScore, weight: "15%", Icon: Thermometer },
+                ].map((f) => (
+                  <div key={f.label} className="flex items-center gap-2">
+                    <f.Icon className="h-3 w-3 text-slate-500" />
+                    <span className="w-28 shrink-0 text-[11px] text-slate-600">{f.label}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${f.value}%` }}
+                      />
+                    </div>
+                    <span className="w-14 shrink-0 text-right font-mono text-[11px] font-semibold text-slate-700">
+                      {f.value}
+                    </span>
+                    <span className="w-8 shrink-0 text-right text-[10px] text-slate-400">{f.weight}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Ranking 5 días */}
+            <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Ranking próximos días
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Capacidad: {plant?.capacityKwp ?? 0} kWp · tarifa {TARIFF_COP_PER_KWH} COP/kWh
+                </div>
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {rankedDays.map((r, idx) => {
+                  const isBest = idx === 0;
+                  const isWorst = idx === rankedDays.length - 1 && rankedDays.length > 1;
+                  return (
+                    <li
+                      key={r.day.date}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+                        isBest
+                          ? "border-emerald-300 bg-emerald-50/60"
+                          : isWorst
+                            ? "border-rose-200 bg-rose-50/50"
+                            : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold ${
+                          isBest
+                            ? "bg-emerald-600 text-white"
+                            : isWorst
+                              ? "bg-rose-200 text-rose-800"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-slate-900">
+                          {formatLocal(r.day.date, { weekday: "long", day: "numeric", month: "short" })}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                          <span className="inline-flex items-center gap-1">
+                            <Zap className="h-3 w-3" />
+                            {Math.round(r.day.expectedKwhDay).toLocaleString("es-CO")} kWh
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <CloudRain className="h-3 w-3" />
+                            {r.day.precipProbMaxPct.toFixed(0)}%
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Wind className="h-3 w-3" />
+                            {r.day.windMaxKmh.toFixed(0)} km/h
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Thermometer className="h-3 w-3" />
+                            {r.day.tempMinC.toFixed(0)}-{r.day.tempMaxC.toFixed(0)}°C
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div
+                          className={`font-heading text-lg font-bold ${
+                            isBest ? "text-emerald-700" : isWorst ? "text-rose-700" : "text-slate-700"
+                          }`}
+                        >
+                          {r.total}
+                        </div>
+                        <div className="text-[10px] text-slate-400">score</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-3 rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-600">
+                <div className="flex items-start gap-1.5">
+                  <Info className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+                  <span>
+                    Score = <b>40%</b> lucro cesante + <b>30%</b> lluvia + <b>15%</b> viento + <b>15%</b> temperatura.
+                    Parar en el día con menor score perdería hasta{" "}
+                    <b className="text-rose-700">
+                      {rankedDays.length > 1
+                        ? formatCOP(
+                            (rankedDays[rankedDays.length - 1].day.expectedKwhDay -
+                              rankedDays[0].day.expectedKwhDay) *
+                              TARIFF_COP_PER_KWH,
+                          )
+                        : "$0"}
+                    </b>{" "}
+                    más.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+            Sincronizando pronóstico climático…
+          </div>
+        )}
       </SectionCard>
 
       {/* === Mapa Colombia + Alertas operativas === */}
