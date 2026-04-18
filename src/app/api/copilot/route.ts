@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chat, type ChatMessage } from "@/lib/minimax";
+import { chatStream, type ChatMessage } from "@/lib/minimax";
 import { displayClientLabel } from "@/lib/display";
 import { getFleetSummary, getTopPlants } from "@/lib/fleet";
 import { prisma } from "@/lib/prisma";
@@ -60,11 +60,27 @@ export async function POST(req: NextRequest) {
     ...messages,
   ];
 
-  try {
-    const answer = await chat(augmented, { temperature: 0.3 });
-    return NextResponse.json({ answer });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 502 });
-  }
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const enc = new TextEncoder();
+      try {
+        for await (const chunk of chatStream(augmented, { temperature: 0.3 })) {
+          controller.enqueue(enc.encode(chunk));
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        controller.enqueue(enc.encode(`\n\n[ERROR] ${msg}`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

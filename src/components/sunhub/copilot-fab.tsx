@@ -66,7 +66,7 @@ export function CopilotFab() {
     if (!prompt.trim() || busy) return;
     const userMsg: Msg = { role: "user", content: prompt };
     const next = [...messages, userMsg];
-    setMessages(next);
+    setMessages([...next, { role: "assistant", content: "" }]);
     setInput("");
     setBusy(true);
     try {
@@ -75,17 +75,37 @@ export function CopilotFab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
       });
-      const json = await res.json();
-      const answer: Msg = {
-        role: "assistant",
-        content: json.answer ?? json.error ?? "Sin respuesta.",
-      };
-      setMessages([...next, answer]);
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setMessages((prev) => {
+          const copy = prev.slice();
+          copy[copy.length - 1] = { role: "assistant", content: acc };
+          return copy;
+        });
+      }
+      if (acc.length === 0) {
+        setMessages((prev) => {
+          const copy = prev.slice();
+          copy[copy.length - 1] = { role: "assistant", content: "Sin respuesta." };
+          return copy;
+        });
+      }
     } catch (err) {
-      setMessages([
-        ...next,
-        { role: "assistant", content: `Error: ${(err as Error).message}` },
-      ]);
+      const msg = err instanceof Error ? err.message : String(err);
+      setMessages((prev) => {
+        const copy = prev.slice();
+        copy[copy.length - 1] = { role: "assistant", content: `Error: ${msg}` };
+        return copy;
+      });
     } finally {
       setBusy(false);
     }
@@ -236,9 +256,17 @@ export function CopilotFab() {
                             <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
                               <Sparkles className="h-3 w-3" /> Copilot
                             </div>
-                            <div className="whitespace-pre-wrap text-xs leading-relaxed">
-                              {m.content}
-                            </div>
+                            {m.content.length === 0 ? (
+                              <span className="inline-flex gap-1 py-1">
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.3s]" />
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.15s]" />
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400" />
+                              </span>
+                            ) : (
+                              <div className="whitespace-pre-wrap text-xs leading-relaxed">
+                                {m.content}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="max-w-[90%] rounded-2xl rounded-tr-sm bg-slate-800 px-3.5 py-2 text-xs text-white shadow-sm">
@@ -248,17 +276,6 @@ export function CopilotFab() {
                       </div>
                     ))
                   )}
-                  {busy ? (
-                    <div className="flex justify-start">
-                      <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
-                        <span className="inline-flex gap-1">
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.3s]" />
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.15s]" />
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400" />
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
 
                 {/* Quick actions */}
