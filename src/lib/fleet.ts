@@ -2,6 +2,7 @@
  * Fleet-level aggregation helpers — shared between server components and
  * /api routes so the dashboard and JSON API never drift.
  */
+import { displayClientLabel } from "./display";
 import { prisma } from "./prisma";
 
 export type FleetSummary = {
@@ -132,7 +133,7 @@ export async function getTopPlants(limit = 5): Promise<TopPlant[]> {
       id: p.id,
       code: p.code,
       name: p.name,
-      client: p.client.name,
+      client: displayClientLabel(p.client, { name: p.name }),
       capacityKwp: capacity,
       currentPowerKw: Math.round(currentPowerKw * 10) / 10,
       status,
@@ -212,7 +213,7 @@ export async function listPlants(filter: PlantFilter = {}): Promise<{
       id: p.id,
       code: p.code,
       name: p.name,
-      client: p.client.name,
+      client: displayClientLabel(p.client, { name: p.name }),
       region: p.client.region,
       provider: d?.provider.slug ?? "unknown",
       capacityKwp: Number(p.capacityKwp ?? 0),

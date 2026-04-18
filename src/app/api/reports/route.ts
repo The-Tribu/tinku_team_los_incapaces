@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { displayClientLabel } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
 import { computeReportMetrics, generateNarrative } from "@/lib/reports";
 
@@ -33,9 +34,10 @@ export async function POST(req: NextRequest) {
   const period = body.period ? new Date(body.period) : new Date();
   const metrics = await computeReportMetrics(plant.id, period);
 
+  const clientLabel = displayClientLabel(plant.client, { name: plant.name });
   let narrative = "";
   try {
-    narrative = await generateNarrative(plant.name, plant.client.name, metrics);
+    narrative = await generateNarrative(plant.name, clientLabel, metrics);
   } catch (err) {
     narrative = `(Narrativa IA no disponible: ${(err as Error).message})`;
   }
@@ -55,6 +57,6 @@ export async function POST(req: NextRequest) {
     reportId: report.id,
     metrics,
     narrative,
-    plant: { name: plant.name, code: plant.code, client: plant.client.name },
+    plant: { name: plant.name, code: plant.code, client: clientLabel },
   });
 }

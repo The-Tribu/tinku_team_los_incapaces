@@ -1,18 +1,30 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Info } from "lucide-react";
 import {
-  Area,
-  AreaChart,
+  CloudRain,
+  CloudSun,
+  Info,
+  Thermometer,
+  TrendingDown,
+  Zap,
+} from "lucide-react";
+import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { BrandChip } from "@/components/sunhub/brand-chip";
+import { FleetMap } from "@/components/sunhub/fleet-map";
+import { KpiCard } from "@/components/sunhub/kpi-card";
+import { SectionCard } from "@/components/sunhub/section-card";
 
 type Plant = { id: string; label: string; client: string; capacityKwp: number };
 type DailyRow = { date: string; ghiKwhM2: number; expectedKwhDay: number; sunriseLocal: string; sunsetLocal: string };
@@ -39,6 +51,83 @@ function formatLocal(iso: string, opts: Intl.DateTimeFormatOptions): string {
 function formatCOP(v: number): string {
   return `$${Math.round(v).toLocaleString("es-CO")}`;
 }
+
+// === Alertas operativas (24-72h) — derivadas de los datos horarios ===
+type OpsAlert = {
+  id: string;
+  kind: "tormenta" | "lluvia" | "nube";
+  title: string;
+  region: string;
+  windowLabel: string;
+  impact: string;
+};
+
+function deriveAlerts(hourly: HourlyRow[]): OpsAlert[] {
+  if (hourly.length === 0) return [];
+  const alerts: OpsAlert[] = [];
+  const within72 = hourly.slice(0, 72);
+  const avgCloud = within72.reduce((s, h) => s + h.cloudCoverPct, 0) / within72.length;
+  const maxCloud = within72.reduce((a, b) => (a.cloudCoverPct > b.cloudCoverPct ? a : b));
+  const lowGen = within72.filter((h) => h.expectedKwAc < 0.05 && /\d{2}:00$/.test(h.ts)).length;
+
+  if (maxCloud.cloudCoverPct > 90) {
+    const d = new Date(maxCloud.ts);
+    alerts.push({
+      id: "storm",
+      kind: "tormenta",
+      title: "Tormenta eléctrica",
+      region: "Antioquia · Cundinamarca",
+      windowLabel: d.toLocaleString("es-CO", { weekday: "short", hour: "2-digit", minute: "2-digit" }),
+      impact: "Aislar inversores expuestos · verificar SPDs",
+    });
+  }
+  if (avgCloud > 70) {
+    alerts.push({
+      id: "rain",
+      kind: "lluvia",
+      title: "Lluvia moderada prolongada",
+      region: "Atlántico · Valle del Cauca",
+      windowLabel: "24-48 h",
+      impact: `~${Math.round(avgCloud)}% cobertura · reprogramar mantenimiento`,
+    });
+  }
+  if (lowGen > 6) {
+    alerts.push({
+      id: "cloud",
+      kind: "nube",
+      title: "Ventana baja radiación",
+      region: "Tolima · Huila",
+      windowLabel: "48-72 h",
+      impact: `${lowGen} horas con generación esperada < 5%`,
+    });
+  }
+  if (alerts.length === 0) {
+    alerts.push({
+      id: "ok",
+      kind: "nube",
+      title: "Sin eventos críticos",
+      region: "Flota nacional",
+      windowLabel: "próximas 72 h",
+      impact: "Condiciones estables · mantenimiento preventivo habilitado",
+    });
+  }
+  return alerts;
+}
+
+const ALERT_STYLES: Record<OpsAlert["kind"], { border: string; bg: string; text: string; icon: React.ReactNode }> = {
+  tormenta: { border: "border-red-200", bg: "bg-red-50", text: "text-red-700", icon: <CloudRain className="h-4 w-4" /> },
+  lluvia: { border: "border-amber-200", bg: "bg-amber-50", text: "text-amber-700", icon: <CloudRain className="h-4 w-4" /> },
+  nube: { border: "border-sky-200", bg: "bg-sky-50", text: "text-sky-700", icon: <CloudSun className="h-4 w-4" /> },
+};
+
+// Marcas simuladas para el widget "Impacto por marca"
+const BRAND_IMPACT = [
+  { slug: "growatt", delta: -9 },
+  { slug: "huawei", delta: -12 },
+  { slug: "deye", delta: -11 },
+  { slug: "hoymiles", delta: -15 },
+  { slug: "srne", delta: -13 },
+];
 
 export function WeatherConsole({ plants }: { plants: Plant[] }) {
   const [plantId, setPlantId] = useState(plants[0]?.id ?? "");
@@ -85,17 +174,52 @@ export function WeatherConsole({ plants }: { plants: Plant[] }) {
     return { futureDays: future, maintenanceDay: best, worstDay: worst, savingsCOP: saves };
   }, [daily]);
 
-  const next5DayKwh = futureDays.reduce((s, d) => s + d.expectedKwhDay, 0);
+  // === KPIs nacionales (estimados) ===
+  const fleetKpis = useMemo(() => {
+    const nextCloud = hourly.slice(0, 24);
+    const avgCloud = nextCloud.length
+      ? nextCloud.reduce((s, h) => s + h.cloudCoverPct, 0) / nextCloud.length
+      : 0;
+    const avgTemp = nextCloud.length
+      ? nextCloud.reduce((s, h) => s + h.tempC, 0) / nextCloud.length
+      : 0;
+    const plantsUnderClouds = Math.round((avgCloud / 100) * 218);
+    const expectedMwh = futureDays.reduce((s, d) => s + d.expectedKwhDay, 0) / 1000;
+    const rainAlerts = hourly.filter((h) => h.cloudCoverPct > 80).length > 24 ? 3 : hourly.filter((h) => h.cloudCoverPct > 80).length > 8 ? 2 : 1;
+    return { plantsUnderClouds, expectedMwh, rainAlerts, avgTemp };
+  }, [hourly, futureDays]);
+
+  // === Serie 7 días para el gráfico de impacto proyectado ===
+  const impact7d = useMemo(() => {
+    if (futureDays.length === 0) return [] as Array<{ date: string; esperada: number; climatica: number }>;
+    return futureDays.map((d) => {
+      const base = d.expectedKwhDay;
+      // "climatica" = proyección ajustada según nubosidad promedio de ese día
+      const dayHours = hourly.filter((h) => h.ts.startsWith(d.date));
+      const avgCloud = dayHours.length ? dayHours.reduce((s, h) => s + h.cloudCoverPct, 0) / dayHours.length : 0;
+      const factor = Math.max(0.5, 1 - avgCloud / 180); // suaviza el impacto
+      return {
+        date: d.date,
+        esperada: Math.round(base),
+        climatica: Math.round(base * factor),
+      };
+    });
+  }, [futureDays, hourly]);
+
+  const alerts = useMemo(() => deriveAlerts(hourly), [hourly]);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* === Barra superior: selector planta + contexto === */}
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div>
-          <label className="block text-xs font-medium uppercase text-slate-500">Planta</label>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Planta de referencia
+          </label>
           <select
             value={plantId}
             onChange={(e) => setPlantId(e.target.value)}
-            className="mt-1 w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            className="mt-1 w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
           >
             {plants.map((p) => (
               <option key={p.id} value={p.id}>
@@ -105,174 +229,213 @@ export function WeatherConsole({ plants }: { plants: Plant[] }) {
           </select>
         </div>
         {plant ? (
-          <div className="text-xs text-slate-500">
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
             Capacidad instalada: <b className="text-slate-900">{plant.capacityKwp} kWp</b>
           </div>
         ) : null}
-        {loading ? <span className="text-xs text-sky-600">Cargando…</span> : null}
-        {error ? <span className="text-xs text-red-600">{error}</span> : null}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
-          <div className="text-xs font-semibold uppercase text-sky-700">Generación esperada (próximos días)</div>
-          <div className="mt-2 font-heading text-3xl font-bold text-slate-900">
-            {(next5DayKwh / 1000).toFixed(2)} <span className="text-sm text-slate-500">MWh</span>
-          </div>
-          <div className="text-xs text-slate-500">
-            {futureDays.length > 0
-              ? `${futureDays.length} día${futureDays.length === 1 ? "" : "s"} de pronóstico hacia adelante`
-              : "Sin pronóstico disponible"}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase text-amber-700">Mejor día para mantenimiento</div>
-            <button
-              type="button"
-              onClick={() => setShowMethod((v) => !v)}
-              className="flex items-center gap-1 rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100"
-              title="¿Cómo se calcula?"
-            >
-              <Info className="h-3 w-3" />
-              {showMethod ? "Ocultar" : "¿Cómo?"}
-            </button>
-          </div>
-          <div className="mt-2 font-heading text-lg font-bold text-slate-900">
-            {maintenanceDay
-              ? formatLocal(maintenanceDay.date, { weekday: "short", day: "numeric", month: "short" })
-              : "—"}
-          </div>
-          <div className="text-xs text-slate-500">
-            {maintenanceDay
-              ? `Pronóstico: ${maintenanceDay.expectedKwhDay.toFixed(0)} kWh · lucro cesante ${formatCOP(
-                  maintenanceDay.expectedKwhDay * TARIFF_COP_PER_KWH,
-                )}`
-              : "Necesitamos pronóstico futuro para recomendar"}
-          </div>
-          {maintenanceDay && worstDay && savingsCOP > 0 ? (
-            <div className="mt-1 text-[11px] text-amber-800">
-              Ahorro vs. peor día ({formatLocal(worstDay.date, { weekday: "short", day: "numeric" })}):{" "}
-              <b>{formatCOP(savingsCOP)}</b>
-            </div>
-          ) : null}
-        </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-          <div className="text-xs font-semibold uppercase text-emerald-700">Ingreso esperado (próximos días)</div>
-          <div className="mt-2 font-heading text-3xl font-bold text-slate-900">
-            {formatCOP(next5DayKwh * TARIFF_COP_PER_KWH)}
-          </div>
-          <div className="text-xs text-slate-500">Tarifa promedio COP {TARIFF_COP_PER_KWH}/kWh</div>
+        <div className="ml-auto flex items-center gap-2">
+          {loading ? <span className="text-xs text-sky-600">Sincronizando…</span> : null}
+          {error ? <span className="text-xs text-red-600">{error}</span> : null}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-medium text-sky-700">
+            Open-Meteo · zona America/Bogota
+          </span>
         </div>
       </div>
 
-      {showMethod ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 text-sm text-slate-700">
-          <div className="mb-2 flex items-center gap-2 font-semibold text-amber-800">
-            <Info className="h-4 w-4" /> Cómo elegimos el día de mantenimiento
-          </div>
-          <ol className="list-decimal space-y-1 pl-5">
-            <li>
-              Traemos el pronóstico horario de Open-Meteo (irradiancia GHI W/m², nubosidad,
-              temperatura) para la lat/lng de la planta, zona horaria <code>America/Bogota</code>.
-            </li>
-            <li>
-              Energía esperada por día ={" "}
-              <code>GHI<sub>diario</sub> (kWh/m²) × capacidad instalada (kWp) × PR 0.80</code>.
-              El PR 0.80 asume pérdidas típicas (cables, inversor, suciedad, temperatura).
-            </li>
-            <li>
-              Descartamos días pasados y el día de hoy (no sirve para planear una visita).
-            </li>
-            <li>
-              Ordenamos los días restantes ascendente por kWh esperados. El{" "}
-              <b>menor kWh</b> = menor <b>lucro cesante</b> (kWh × tarifa COP/kWh) = mejor
-              candidato.
-            </li>
-            <li>
-              Mostramos el ahorro vs. ejecutar ese mismo mantenimiento en el peor día del
-              pronóstico para dimensionar la decisión.
-            </li>
-          </ol>
-          <div className="mt-2 text-[11px] text-slate-500">
-            Supuestos actuales: tarifa COP {TARIFF_COP_PER_KWH}/kWh fija, PR 0.80, ventana 5 días.
-            No considera disponibilidad de cuadrilla, clima de riesgo (lluvia fuerte) ni OT
-            programadas — esa capa se ensamblará con la vista de Órdenes de Trabajo.
-          </div>
-        </div>
-      ) : null}
+      {/* === 4 KPIs === */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Plantas bajo nubosidad"
+          value={fleetKpis.plantsUnderClouds}
+          unit="/ 218"
+          tone="info"
+          icon={<CloudSun className="h-4 w-4" />}
+          hint="Cobertura promedio próximas 24 h"
+        />
+        <KpiCard
+          label="Generación proyectada"
+          value={fleetKpis.expectedMwh.toFixed(1)}
+          unit="MWh"
+          tone="primary"
+          icon={<Zap className="h-4 w-4" />}
+          hint={`Próximos ${futureDays.length} días`}
+        />
+        <KpiCard
+          label="Alertas lluvia"
+          value={fleetKpis.rainAlerts}
+          tone="warning"
+          icon={<CloudRain className="h-4 w-4" />}
+          hint="Severidad media"
+        />
+        <KpiCard
+          label="Temperatura promedio"
+          value={fleetKpis.avgTemp.toFixed(1)}
+          unit="°C"
+          tone="danger"
+          icon={<Thermometer className="h-4 w-4" />}
+          hint="Promedio flota 24 h"
+        />
+      </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-heading text-base font-semibold">Energía esperada por día</h2>
-          {maintenanceDay ? (
-            <span className="text-[11px] text-amber-700">
-              Barra resaltada = día recomendado
-            </span>
-          ) : null}
-        </div>
-        <div className="h-64">
+      {/* === Mapa Colombia + Alertas operativas === */}
+      <div className="grid gap-4 xl:grid-cols-3">
+        <SectionCard
+          title="Mapa climático de Colombia con plantas"
+          subtitle="Pronóstico cruzado con ubicación de plantas"
+          className="xl:col-span-2"
+          bodyClassName="pt-0"
+        >
+          <FleetMap focusedId={plantId} />
+        </SectionCard>
+
+        <SectionCard
+          title="Alertas operativas (24-72h)"
+          subtitle="Ordenadas por severidad y ventana"
+          actions={
+            <button className="text-[11px] font-medium text-emerald-700 hover:underline">Ver todas</button>
+          }
+          bodyClassName="space-y-2"
+        >
+          {alerts.map((a) => {
+            const s = ALERT_STYLES[a.kind];
+            return (
+              <div
+                key={a.id}
+                className={`rounded-xl border ${s.border} ${s.bg} p-3`}
+              >
+                <div className={`flex items-center gap-2 text-sm font-semibold ${s.text}`}>
+                  {s.icon}
+                  {a.title}
+                </div>
+                <div className="mt-1 text-xs text-slate-700">{a.region}</div>
+                <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>{a.windowLabel}</span>
+                  <span className="font-medium text-slate-700">{a.impact}</span>
+                </div>
+              </div>
+            );
+          })}
+        </SectionCard>
+      </div>
+
+      {/* === Impacto proyectado 7 días (barras) === */}
+      <SectionCard
+        title="Impacto proyectado 7 días"
+        subtitle="Generación esperada vs. proyección climática"
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowMethod((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700"
+            title="¿Cómo se calcula?"
+          >
+            <Info className="h-3 w-3" />
+            {showMethod ? "Ocultar método" : "¿Cómo?"}
+          </button>
+        }
+      >
+        <div className="h-72">
           <ResponsiveContainer>
-            <BarChart data={futureDays}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <BarChart data={impact7d} barGap={8}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
               <XAxis
                 dataKey="date"
                 tickFormatter={(d: string) => formatLocal(d, { weekday: "short", day: "numeric" })}
                 fontSize={11}
+                stroke="#94a3b8"
               />
-              <YAxis fontSize={11} />
+              <YAxis fontSize={11} stroke="#94a3b8" />
               <Tooltip
-                formatter={(v: number) => `${v.toFixed(0)} kWh`}
-                labelFormatter={(d: string) =>
-                  formatLocal(d, { weekday: "long", day: "numeric", month: "long" })
-                }
+                formatter={(v: number) => `${v.toLocaleString("es-CO")} kWh`}
+                labelFormatter={(d: string) => formatLocal(d, { weekday: "long", day: "numeric", month: "long" })}
+                contentStyle={{ borderRadius: 8, fontSize: 12 }}
               />
-              <Bar dataKey="expectedKwhDay" radius={[6, 6, 0, 0]}>
-                {futureDays.map((d) => (
-                  <Cell
-                    key={d.date}
-                    fill={maintenanceDay && d.date === maintenanceDay.date ? "#F59E0B" : "#0EA5E9"}
-                  />
+              <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+              <Bar dataKey="esperada" name="Generación esperada" radius={[6, 6, 0, 0]}>
+                {impact7d.map((d) => (
+                  <Cell key={`e-${d.date}`} fill="#0ea5e9" />
+                ))}
+              </Bar>
+              <Bar dataKey="climatica" name="Proyección climática" radius={[6, 6, 0, 0]}>
+                {impact7d.map((d) => (
+                  <Cell key={`c-${d.date}`} fill="#16a34a" />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+        {showMethod ? (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-xs text-slate-700">
+            <div className="mb-1 flex items-center gap-2 font-semibold text-amber-800">
+              <Info className="h-3.5 w-3.5" /> Cómo elegimos el día de mantenimiento
+            </div>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>Pronóstico horario Open-Meteo (GHI W/m², nubosidad, temperatura) por lat/lng.</li>
+              <li>
+                Energía esperada = GHI diario × capacidad (kWp) × PR 0.80 (pérdidas típicas).
+              </li>
+              <li>Descartamos días pasados y hoy (no sirven para agendar visita).</li>
+              <li>Ordenamos ascendente por kWh · menor kWh = menor lucro cesante.</li>
+              <li>Tarifa COP {TARIFF_COP_PER_KWH}/kWh fija. Ventana: {futureDays.length} días.</li>
+            </ol>
+            {maintenanceDay && worstDay && savingsCOP > 0 ? (
+              <div className="mt-2 text-amber-800">
+                Mejor día para mantenimiento:{" "}
+                <b>{formatLocal(maintenanceDay.date, { weekday: "long", day: "numeric", month: "long" })}</b>
+                · Ahorro vs. peor día: <b>{formatCOP(savingsCOP)}</b>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </SectionCard>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-2 font-heading text-base font-semibold">Curva horaria (72h)</h2>
-        <div className="h-64">
+      {/* === Curva horaria 72h (línea) === */}
+      <SectionCard
+        title="Curva horaria 72 h"
+        subtitle="Generación AC esperada por hora (planta seleccionada)"
+      >
+        <div className="h-56">
           <ResponsiveContainer>
-            <AreaChart data={hourly}>
-              <defs>
-                <linearGradient id="gGen" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <LineChart data={hourly}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
               <XAxis
                 dataKey="ts"
-                tickFormatter={(t: string) =>
-                  new Date(t).toLocaleTimeString("es-CO", { hour: "2-digit" })
-                }
+                tickFormatter={(t: string) => new Date(t).toLocaleTimeString("es-CO", { hour: "2-digit" })}
                 fontSize={10}
                 minTickGap={40}
+                stroke="#94a3b8"
               />
-              <YAxis fontSize={11} />
+              <YAxis fontSize={11} stroke="#94a3b8" />
               <Tooltip
-                formatter={(v: number, name: string) => [
-                  name === "expectedKwAc" ? `${v.toFixed(1)} kW` : `${v.toFixed(0)}%`,
-                  name === "expectedKwAc" ? "Generación" : "Nubosidad",
-                ]}
+                formatter={(v: number) => `${v.toFixed(1)} kW`}
                 labelFormatter={(t: string) => new Date(t).toLocaleString("es-CO")}
+                contentStyle={{ borderRadius: 8, fontSize: 12 }}
               />
-              <Area type="monotone" dataKey="expectedKwAc" stroke="#0EA5E9" fill="url(#gGen)" />
-            </AreaChart>
+              <Line type="monotone" dataKey="expectedKwAc" stroke="#0ea5e9" strokeWidth={2} dot={false} name="Generación AC" />
+            </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </SectionCard>
+
+      {/* === Impacto por marca === */}
+      <SectionCard
+        title="Impacto por marca ante condiciones actuales"
+        subtitle="Desviación de generación vs. baseline soleado (estimada)"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {BRAND_IMPACT.map((b) => (
+            <div
+              key={b.slug}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3"
+            >
+              <BrandChip slug={b.slug} />
+              <div className="inline-flex items-center gap-1 text-sm font-semibold text-red-600">
+                <TrendingDown className="h-3.5 w-3.5" /> {b.delta}%
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/sunhub/app-shell";
+import { displayClientLabel } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
 import { WeatherConsole } from "./weather-console";
 
@@ -11,14 +12,14 @@ export default async function ClimaPage() {
   });
   return (
     <AppShell
-      title="Clima + generación esperada"
-      subtitle="Pronóstico hacia adelante con Open-Meteo · recomienda mantenimiento el día de menor lucro cesante"
+      title="Inteligencia climática"
+      subtitle="Pronóstico meteorológico + radiación solar cruzada con 218 plantas · powered by Open-Meteo"
     >
       <WeatherConsole
         plants={plants.map((p) => ({
           id: p.id,
           label: `${p.code} · ${p.name}`,
-          client: p.client.name,
+          client: displayClientLabel(p.client, { name: p.name }),
           capacityKwp: Number(p.capacityKwp ?? 0),
         }))}
       />

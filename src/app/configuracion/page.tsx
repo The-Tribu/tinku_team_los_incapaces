@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronRight, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { AppShell } from "@/components/sunhub/app-shell";
 import { getSessionUser, canWrite } from "@/lib/auth";
+import { displayClientLabel } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
 import { toPolicyView } from "@/lib/policies";
 
@@ -88,7 +89,7 @@ export default async function ConfiguracionPage() {
                     <div className="font-medium text-slate-900">{p.name}</div>
                     <div className="text-[11px] text-slate-500">{p.code}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{p.client.name}</td>
+                  <td className="px-4 py-3 text-slate-600">{displayClientLabel(p.client, { name: p.name })}</td>
                   <td className="px-4 py-3">{levelBadge(policy?.autonomyLevel)}</td>
                   <td className="px-4 py-3">{modeBadge(policy?.executionMode)}</td>
                   <td className="px-4 py-3">

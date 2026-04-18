@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,26 +14,43 @@ import {
 type Point = { ts: string; power_kw: number; by_provider: Record<string, number> };
 
 const PROVIDER_COLORS: Record<string, string> = {
-  growatt: "#16A34A",
-  deye: "#0EA5E9",
-  huawei: "#FACC15",
-  hoymiles: "#8B5CF6",
-  srne: "#F59E0B",
-  solarman: "#DC2626",
+  growatt: "#16a34a",
+  deye: "#0ea5e9",
+  huawei: "#f59e0b",
+  hoymiles: "#8b5cf6",
+  srne: "#ef4444",
+  solarman: "#6366f1",
 };
 
-export function GenerationChart() {
+const PROVIDER_LABEL: Record<string, string> = {
+  growatt: "Growatt",
+  deye: "Deye",
+  huawei: "Huawei",
+  hoymiles: "Hoymiles",
+  srne: "SRNE",
+  solarman: "Solarman",
+};
+
+type Props = {
+  height?: number;
+};
+
+export function GenerationChart({ height = 280 }: Props) {
   const [data, setData] = useState<Point[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const res = await fetch("/api/fleet/generation-24h");
-      const json = await res.json();
-      if (!cancelled) {
-        setData(json.series as Point[]);
-        setLoading(false);
+      try {
+        const res = await fetch("/api/fleet/generation-24h");
+        const json = await res.json();
+        if (!cancelled) {
+          setData(json.series as Point[]);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) setLoading(false);
       }
     }
     void load();
@@ -44,65 +61,83 @@ export function GenerationChart() {
     };
   }, []);
 
-  const providers = Array.from(
-    new Set(data.flatMap((p) => Object.keys(p.by_provider))),
-  );
-  const flat = data.map((p) => ({
-    ts: p.ts,
-    time: new Date(p.ts).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
-    ...p.by_provider,
-  }));
+  const { providers, flat } = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of data) for (const k of Object.keys(p.by_provider)) set.add(k);
+    const providers = Array.from(set);
+    const flat = data.map((p) => ({
+      ts: p.ts,
+      time: new Date(p.ts).toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      ...p.by_provider,
+    }));
+    return { providers, flat };
+  }, [data]);
 
   return (
-    <div className="h-72 w-full">
+    <div className="w-full" style={{ height }}>
       {loading ? (
         <div className="flex h-full items-center justify-center text-sm text-slate-400">
           Cargando generación…
         </div>
+      ) : flat.length === 0 ? (
+        <div className="flex h-full items-center justify-center text-sm text-slate-400">
+          Sin lecturas recientes
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={flat} margin={{ top: 10, right: 12, left: -12, bottom: 0 }}>
-            <defs>
-              {providers.map((p) => (
-                <linearGradient key={p} id={`g-${p}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor={PROVIDER_COLORS[p] ?? "#16A34A"}
-                    stopOpacity={0.4}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={PROVIDER_COLORS[p] ?? "#16A34A"}
-                    stopOpacity={0.02}
-                  />
-                </linearGradient>
-              ))}
-            </defs>
-            <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} />
+          <LineChart data={flat} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+            <CartesianGrid stroke="#eef2f7" strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="time"
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={28}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              tickLine={false}
+              axisLine={false}
+              width={48}
+            />
             <Tooltip
               contentStyle={{
-                borderRadius: 8,
+                borderRadius: 10,
                 border: "1px solid #e2e8f0",
                 fontSize: 12,
+                boxShadow: "0 4px 16px rgba(15,23,42,0.06)",
               }}
-              formatter={(v: number) => `${(v as number).toFixed(1)} kW`}
+              formatter={(v: number, name: string) => [
+                `${(v as number).toFixed(1)} kW`,
+                PROVIDER_LABEL[name] ?? name,
+              ]}
+              labelStyle={{ color: "#0f172a", fontWeight: 600 }}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
+            <Legend
+              wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+              iconType="circle"
+              formatter={(val) => (
+                <span className="text-slate-600">
+                  {PROVIDER_LABEL[val] ?? val}
+                </span>
+              )}
+            />
             {providers.map((p) => (
-              <Area
+              <Line
                 key={p}
                 type="monotone"
                 dataKey={p}
-                stackId="1"
-                stroke={PROVIDER_COLORS[p] ?? "#16A34A"}
-                strokeWidth={2}
-                fill={`url(#g-${p})`}
-                name={p[0].toUpperCase() + p.slice(1)}
+                stroke={PROVIDER_COLORS[p] ?? "#64748b"}
+                strokeWidth={2.2}
+                dot={false}
+                activeDot={{ r: 4 }}
+                name={p}
               />
             ))}
-          </AreaChart>
+          </LineChart>
         </ResponsiveContainer>
       )}
     </div>

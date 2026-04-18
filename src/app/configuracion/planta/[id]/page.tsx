@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/sunhub/app-shell";
 import { getSessionUser, canAdmin } from "@/lib/auth";
+import { displayClientLabel, isUmbrellaClient } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
 import { getOrCreatePolicy, toPolicyView } from "@/lib/policies";
 import { COMMANDS } from "@/lib/commands";
@@ -35,10 +36,15 @@ export default async function PolicyEditPage({
     risk: c.risk,
   }));
 
+  const clientLabel = displayClientLabel(plant.client, { name: plant.name });
+  const subtitlePrefix = isUmbrellaClient(plant.client?.name)
+    ? plant.code
+    : `${plant.code} · ${clientLabel}`;
+
   return (
     <AppShell
       title={`Política · ${plant.name}`}
-      subtitle={`${plant.code} · ${plant.client.name} — controla qué puede hacer SunHub ante alarmas`}
+      subtitle={`${subtitlePrefix} — controla qué puede hacer SunHub ante alarmas`}
       actions={
         <Link
           href="/configuracion"

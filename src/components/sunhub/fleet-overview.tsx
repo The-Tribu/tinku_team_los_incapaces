@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import { FleetMap } from "./fleet-map";
 import { StatusBadge } from "./status-badge";
+import { SectionCard } from "./section-card";
+import { cn } from "@/lib/cn";
 
 export type TopPlant = {
   id: string;
@@ -15,6 +17,10 @@ export type TopPlant = {
   status: string;
 };
 
+/**
+ * Combined legacy layout: map (3/5) + searchable top-plants table (2/5).
+ * Kept for backward compatibility with other callers.
+ */
 export function FleetOverview({ topPlants }: { topPlants: TopPlant[] }) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -85,7 +91,7 @@ export function FleetOverview({ topPlants }: { topPlants: TopPlant[] }) {
 
         {filtered.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-xs text-slate-500">
-            Sin resultados para <span className="font-medium">"{query}"</span>
+            Sin resultados para <span className="font-medium">&quot;{query}&quot;</span>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -103,9 +109,10 @@ export function FleetOverview({ topPlants }: { topPlants: TopPlant[] }) {
                   <tr
                     key={p.id}
                     onClick={() => setFocusedId(p.id)}
-                    className={`cursor-pointer border-t border-slate-100 transition ${
-                      isActive ? "bg-emerald-50" : "hover:bg-slate-50"
-                    }`}
+                    className={cn(
+                      "cursor-pointer border-t border-slate-100 transition",
+                      isActive ? "bg-emerald-50" : "hover:bg-slate-50",
+                    )}
                   >
                     <td className="py-2.5">
                       <div className="flex items-center gap-2">
@@ -135,5 +142,61 @@ export function FleetOverview({ topPlants }: { topPlants: TopPlant[] }) {
         </p>
       </div>
     </section>
+  );
+}
+
+/**
+ * Compact map panel for the new dashboard right column.
+ * No interactive search; map only, fills its container.
+ */
+export function FleetMapPanel({
+  title = "Mapa de plantas — Colombia",
+  subtitle,
+  statusLegend,
+}: {
+  title?: string;
+  subtitle?: string;
+  statusLegend?: Array<{ status: "online" | "warning" | "offline"; count: number }>;
+}) {
+  return (
+    <SectionCard
+      title={title}
+      subtitle={subtitle ?? "Color = estado · tamaño = capacidad"}
+      actions={
+        <Link
+          href="/plantas"
+          className="text-xs font-medium text-emerald-700 hover:underline"
+        >
+          Ver flota →
+        </Link>
+      }
+      footer={
+        statusLegend ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+            {statusLegend.map((s) => (
+              <span key={s.status} className="inline-flex items-center gap-1.5">
+                <span
+                  className={cn("h-2 w-2 rounded-full", {
+                    "bg-emerald-500": s.status === "online",
+                    "bg-amber-500": s.status === "warning",
+                    "bg-red-500": s.status === "offline",
+                  })}
+                />
+                <span className="font-medium text-slate-700">{s.count}</span>
+                <span className="text-slate-500">
+                  {s.status === "online"
+                    ? "online"
+                    : s.status === "warning"
+                      ? "con aviso"
+                      : "offline"}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : undefined
+      }
+    >
+      <FleetMap />
+    </SectionCard>
   );
 }

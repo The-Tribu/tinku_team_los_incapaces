@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chat, type ChatMessage } from "@/lib/minimax";
+import { displayClientLabel } from "@/lib/display";
 import { getFleetSummary, getTopPlants } from "@/lib/fleet";
 import { prisma } from "@/lib/prisma";
 
@@ -36,7 +37,7 @@ async function fleetContext(): Promise<string> {
     "Alarmas abiertas:",
     ...openAlarms.map(
       (a) =>
-        `- [${a.severity}] ${a.message} @ ${a.device.plant.name} (${a.device.plant.code}, ${a.device.plant.client.name})`,
+        `- [${a.severity}] ${a.message} @ ${a.device.plant.name} (${a.device.plant.code}, ${displayClientLabel(a.device.plant.client, a.device.plant)})`,
     ),
   ].join("\n");
 }
