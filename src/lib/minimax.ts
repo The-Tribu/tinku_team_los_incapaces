@@ -59,6 +59,68 @@ export async function chat(messages: ChatMessage[], opts: ChatOptions = {}): Pro
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
+/**
+ * Streaming variant of {@link chat}. Returns an async iterable of content
+ * deltas exactly as they arrive from MiniMax, parsed out of the OpenAI-style
+ * `data: { ... }\n\n` SSE frames. Used by the AI Copilot to render tokens in
+ * real time instead of waiting for the full completion.
+ */
+export async function* chatStream(
+  messages: ChatMessage[],
+  opts: Omit<ChatOptions, "json"> = {},
+): AsyncGenerator<string, void, void> {
+  const { base, key, model } = requireEnv();
+  const res = await fetch(`${base}/text/chatcompletion_v2`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: opts.temperature ?? 0.2,
+      max_tokens: opts.maxTokens ?? 1024,
+      stream: true,
+    }),
+    signal: opts.signal ?? AbortSignal.timeout(60_000),
+  });
+  if (!res.ok || !res.body) {
+    const body = await res.text().catch(() => "");
+    throw new MiniMaxError(res.status, body);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop() ?? "";
+      for (const part of parts) {
+        for (const line of part.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (payload.length === 0) continue;
+          if (payload === "[DONE]") return;
+          try {
+            const json = JSON.parse(payload);
+            const delta = json?.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta.length > 0) yield delta;
+          } catch {
+            // Ignorar keep-alives o frames malformados.
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function chatJSON<T = unknown>(
   messages: ChatMessage[],
   opts: Omit<ChatOptions, "json"> = {},

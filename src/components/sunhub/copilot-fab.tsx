@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { isNearBottom, useStreamingChatBuffer } from "@/lib/use-streaming-chat";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -41,6 +42,8 @@ export function CopilotFab() {
   const [busy, setBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const stickyRef = useRef(true);
+  const stream = useStreamingChatBuffer();
 
   useEffect(() => setMounted(true), []);
 
@@ -54,38 +57,81 @@ export function CopilotFab() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Autoscroll al último mensaje.
+  // Hidratamos el último mensaje assistant con el buffer pacificado mientras
+  // está en stream. El scroll se mueve sin animación durante el typing para
+  // no pelearse con los rAF del buffer; el suave queda para el cierre.
   useEffect(() => {
-    if (!open) return;
+    if (!busy) return;
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.role !== "assistant") return prev;
+      if (last.content === stream.displayed) return prev;
+      const copy = prev.slice();
+      copy[copy.length - 1] = { role: "assistant", content: stream.displayed };
+      return copy;
+    });
+    if (stickyRef.current) {
+      const el = listRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }, [stream.displayed, busy]);
+
+  // Autoscroll al abrir o cuando termina la respuesta.
+  useEffect(() => {
+    if (!open || busy) return;
     requestAnimationFrame(() =>
       listRef.current?.scrollTo({ top: 9e6, behavior: "smooth" }),
     );
-  }, [messages, busy, open]);
+  }, [messages, open, busy]);
+
+  function onListScroll() {
+    const el = listRef.current;
+    if (!el) return;
+    stickyRef.current = isNearBottom(el);
+  }
 
   async function send(prompt: string) {
     if (!prompt.trim() || busy) return;
     const userMsg: Msg = { role: "user", content: prompt };
     const next = [...messages, userMsg];
-    setMessages(next);
+    setMessages([...next, { role: "assistant", content: "" }]);
     setInput("");
     setBusy(true);
+    stickyRef.current = true;
+    stream.reset();
     try {
       const res = await fetch("/api/copilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
       });
-      const json = await res.json();
-      const answer: Msg = {
-        role: "assistant",
-        content: json.answer ?? json.error ?? "Sin respuesta.",
-      };
-      setMessages([...next, answer]);
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        stream.push(decoder.decode(value, { stream: true }));
+      }
+      const finalText = stream.finalize();
+      const content = finalText.length === 0 ? "Sin respuesta." : finalText;
+      setMessages((prev) => {
+        const copy = prev.slice();
+        copy[copy.length - 1] = { role: "assistant", content };
+        return copy;
+      });
     } catch (err) {
-      setMessages([
-        ...next,
-        { role: "assistant", content: `Error: ${(err as Error).message}` },
-      ]);
+      stream.reset();
+      const msg = err instanceof Error ? err.message : String(err);
+      setMessages((prev) => {
+        const copy = prev.slice();
+        copy[copy.length - 1] = { role: "assistant", content: `Error: ${msg}` };
+        return copy;
+      });
     } finally {
       setBusy(false);
     }
@@ -193,6 +239,7 @@ export function CopilotFab() {
                 {/* Mensajes */}
                 <div
                   ref={listRef}
+                  onScroll={onListScroll}
                   className="flex-1 space-y-3 overflow-y-auto bg-slate-50/50 p-4"
                 >
                   {messages.length === 0 ? (
@@ -223,7 +270,10 @@ export function CopilotFab() {
                       </div>
                     </div>
                   ) : (
-                    messages.map((m, i) => (
+                    messages.map((m, i) => {
+                      const isLast = i === messages.length - 1;
+                      const isStreaming = busy && isLast && m.role === "assistant";
+                      return (
                       <div
                         key={i}
                         className={cn(
@@ -236,9 +286,23 @@ export function CopilotFab() {
                             <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
                               <Sparkles className="h-3 w-3" /> Copilot
                             </div>
-                            <div className="whitespace-pre-wrap text-xs leading-relaxed">
-                              {m.content}
-                            </div>
+                            {m.content.length === 0 ? (
+                              <span className="inline-flex gap-1 py-1">
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.3s]" />
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.15s]" />
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400" />
+                              </span>
+                            ) : (
+                              <div className="whitespace-pre-wrap text-xs leading-relaxed">
+                                {m.content}
+                                {isStreaming ? (
+                                  <span
+                                    aria-hidden
+                                    className="ml-0.5 inline-block h-3 w-[2px] translate-y-[2px] animate-pulse bg-emerald-500 align-baseline"
+                                  />
+                                ) : null}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="max-w-[90%] rounded-2xl rounded-tr-sm bg-slate-800 px-3.5 py-2 text-xs text-white shadow-sm">
@@ -246,19 +310,9 @@ export function CopilotFab() {
                           </div>
                         )}
                       </div>
-                    ))
+                      );
+                    })
                   )}
-                  {busy ? (
-                    <div className="flex justify-start">
-                      <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
-                        <span className="inline-flex gap-1">
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.3s]" />
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400 [animation-delay:-0.15s]" />
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-400" />
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
 
                 {/* Quick actions */}
