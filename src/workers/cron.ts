@@ -39,10 +39,12 @@ import { prisma } from "../lib/prisma";
 import { tick as ingestTick } from "./ingest";
 import { ingestAlarms } from "./alarms";
 import { syncRealPlants } from "../../scripts/sync-real-plants";
+import { updateBaselines } from "../../scripts/update-baselines";
 
 const INGEST_SCHEDULE = process.env.CRON_INGEST_SCHEDULE ?? "*/5 * * * *";
 const ALARMS_SCHEDULE = process.env.CRON_ALARMS_SCHEDULE ?? "* * * * *"; // cada minuto
 const PLANTS_SYNC_SCHEDULE = process.env.CRON_PLANTS_SYNC_SCHEDULE ?? "0 * * * *";
+const BASELINES_SCHEDULE = process.env.CRON_BASELINES_SCHEDULE ?? "15 3 * * *"; // 03:15 local
 const TIMEZONE = process.env.CRON_TIMEZONE ?? "America/Bogota";
 const RUN_ON_START = process.env.CRON_RUN_ON_START !== "0";
 
@@ -68,11 +70,13 @@ async function main() {
   assertValid(INGEST_SCHEDULE, "CRON_INGEST_SCHEDULE");
   assertValid(ALARMS_SCHEDULE, "CRON_ALARMS_SCHEDULE");
   assertValid(PLANTS_SYNC_SCHEDULE, "CRON_PLANTS_SYNC_SCHEDULE");
+  assertValid(BASELINES_SCHEDULE, "CRON_BASELINES_SCHEDULE");
 
   console.log("[cron] starting SunHub cron worker");
   console.log(`[cron]   ingest      → ${INGEST_SCHEDULE} (${TIMEZONE})`);
   console.log(`[cron]   alarms      → ${ALARMS_SCHEDULE} (${TIMEZONE})`);
   console.log(`[cron]   plants-sync → ${PLANTS_SYNC_SCHEDULE} (${TIMEZONE})`);
+  console.log(`[cron]   baselines   → ${BASELINES_SCHEDULE} (${TIMEZONE})`);
   console.log(`[cron]   middleware  → ${process.env.MIDDLEWARE_BASE_URL ?? "(unset)"}`);
 
   cron.schedule(INGEST_SCHEDULE, () => void safeRun("ingest", ingestTick), { timezone: TIMEZONE });
@@ -80,11 +84,15 @@ async function main() {
   cron.schedule(PLANTS_SYNC_SCHEDULE, () => void safeRun("plants-sync", syncRealPlants), {
     timezone: TIMEZONE,
   });
+  cron.schedule(BASELINES_SCHEDULE, () => void safeRun("baselines", updateBaselines), {
+    timezone: TIMEZONE,
+  });
 
   if (RUN_ON_START) {
     await safeRun("plants-sync (bootstrap)", syncRealPlants);
     await safeRun("ingest (bootstrap)", ingestTick);
     await safeRun("alarms (bootstrap)", ingestAlarms);
+    await safeRun("baselines (bootstrap)", updateBaselines);
   }
 
   const shutdown = async (signal: string) => {

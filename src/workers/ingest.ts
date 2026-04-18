@@ -37,6 +37,13 @@ import { mw, MiddlewareError } from "../lib/middleware";
 import { providers, type ProviderSlug, type CanonicalReading } from "../lib/normalize";
 import { readingEndpoint } from "../lib/providers";
 import { evaluateRules } from "../lib/rules";
+import { loadBaseline, zScore, anomalySeverity, type BaselineMetric } from "../lib/baselines";
+import { predictForPlant } from "../lib/predictions";
+
+// Cooldown para no disparar la misma predicción proactiva en ticks consecutivos.
+// Key = deviceId → timestamp. TTL = 30 min.
+const anomalyCooldown = new Map<string, number>();
+const ANOMALY_COOLDOWN_MS = 30 * 60 * 1000;
 
 async function fetchReading(
   slug: ProviderSlug,
@@ -67,6 +74,47 @@ async function fetchReading(
 }
 
 type DeviceRow = { id: string };
+
+/**
+ * Chequea z-score vs baseline para las métricas clave. Si alguna dispara
+ * severity >= warning, enqueuea una predicción proactiva (triggerKind=anomaly).
+ * No bloquea el tick — corre en background y respeta cooldown por device.
+ */
+async function checkAnomalies(
+  deviceId: string,
+  plantId: string,
+  reading: CanonicalReading,
+) {
+  const lastRun = anomalyCooldown.get(deviceId);
+  if (lastRun && Date.now() - lastRun < ANOMALY_COOLDOWN_MS) return;
+
+  const checks: Array<{ metric: BaselineMetric; value: number | null | undefined }> = [
+    { metric: "power_ac_kw", value: reading.power_ac_kw },
+    { metric: "voltage_v", value: reading.voltage_v },
+    { metric: "temperature_c", value: reading.temperature_c },
+  ];
+
+  for (const c of checks) {
+    if (c.value == null) continue;
+    const baseline = await loadBaseline(deviceId, c.metric, 30);
+    const z = zScore(Number(c.value), baseline);
+    const sev = anomalySeverity(z);
+    if (!sev || sev === "info") continue; // warning+ para disparar
+    anomalyCooldown.set(deviceId, Date.now());
+    console.log(
+      `[ingest] anomaly on ${deviceId} ${c.metric}=${c.value} z=${z?.toFixed(2)} sev=${sev} — firing proactive prediction`,
+    );
+    void (async () => {
+      try {
+        await predictForPlant(plantId, { triggerKind: "anomaly", deviceId });
+      } catch (err) {
+        console.warn(`[ingest] anomaly predict failed: ${(err as Error).message}`);
+      }
+    })();
+    return; // una predicción por device por tick es suficiente
+  }
+}
+
 async function persist(device: DeviceRow, reading: CanonicalReading) {
   await prisma.$transaction([
     prisma.reading.create({
@@ -124,6 +172,9 @@ export async function tick() {
         plantCapacityKwp: Number((d as unknown as { plant?: { capacityKwp?: unknown } }).plant?.capacityKwp ?? 0),
         currentStatus: d.currentStatus,
       });
+      void checkAnomalies(d.id, d.plantId, reading).catch((err) =>
+        console.warn(`[ingest] anomaly check failed: ${(err as Error).message}`),
+      );
       ok++;
     } catch (err) {
       fail++;

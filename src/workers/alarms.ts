@@ -34,11 +34,15 @@ loadDotEnv(".env");
 
 import { prisma } from "../lib/prisma";
 import { mw, MiddlewareError } from "../lib/middleware";
-import { alarmsEndpoint, growattInverterAlarmEndpoint } from "../lib/providers";
+import { alarmsEndpoint } from "../lib/providers";
 import { normalizeProviderAlarms, type ProviderAlarm } from "../lib/alarms-normalize";
 import type { ProviderSlug } from "../lib/normalize";
 import { publishAlarm, type AlarmEvent } from "../lib/alarm-bus";
 import { fanoutAlarm } from "../lib/notifications";
+import { predictForPlant } from "../lib/predictions";
+import { suggestCommandForAlarm } from "../lib/commands";
+import { propose } from "../lib/remediation";
+import { getOrCreatePolicy, toPolicyView } from "../lib/policies";
 
 const WINDOW_DAYS = Number(process.env.ALARMS_WINDOW_DAYS ?? 2);
 
@@ -56,16 +60,6 @@ async function fetchProviderAlarms(device: DeviceRow): Promise<ProviderAlarm[]> 
   const windowMs = WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
   try {
-    if (slug === "growatt") {
-      // En Growatt las alarmas son por inverter serial. Si el externalId del
-      // device ES un plant_id (workflow actual de sync), saltamos hasta que
-      // el sync genere devices a nivel inverter. Cuando llegue, el mismo
-      // device tendrá `kind="inverter"` y externalId=serial.
-      if (device.kind !== "inverter") return [];
-      const ep = growattInverterAlarmEndpoint(device.externalId);
-      const raw = await mw(ep.path, { method: ep.method });
-      return normalizeProviderAlarms("growatt", raw, { inverterSn: device.externalId });
-    }
     const ep = alarmsEndpoint(slug, device.externalId, windowMs);
     if (!ep) return [];
     const init: RequestInit = { method: ep.method };
@@ -149,6 +143,92 @@ async function upsertAlarm(device: DeviceRow, a: ProviderAlarm): Promise<AlarmEv
   return null;
 }
 
+/**
+ * Loop de aprendizaje / auto-match: cuando nace una alarma, buscamos
+ * predicciones abiertas (últimos 14d, sin outcome) del mismo device cuyo
+ * `predictedType` corresponda al `type` de la alarma → marcamos outcome =
+ * auto_matched. Esto alimenta la métrica de accuracy y la memoria del LLM.
+ */
+async function autoMatchOpenPredictions(deviceId: string, alarmId: string, alarmType: string) {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const candidates = await prisma.prediction.findMany({
+    where: {
+      deviceId,
+      generatedAt: { gte: since },
+      outcome: null,
+      sourceAlarmId: null, // si ya fue triggered por una alarma, no cerramos con ella misma
+    },
+    select: { id: true, predictedType: true },
+  });
+  const typeMatch = (pred: string, alarm: string) => {
+    const a = alarm.toLowerCase();
+    if (pred === "failure") return ["offline", "provider", "voltage", "frequency"].some((k) => a.includes(k));
+    if (pred === "degradation") return ["temperature", "low_gen", "provider"].some((k) => a.includes(k));
+    if (pred === "low_gen") return a.includes("low_gen") || a.includes("provider");
+    return false;
+  };
+  for (const p of candidates) {
+    if (!typeMatch(p.predictedType, alarmType)) continue;
+    await prisma.predictionOutcome.create({
+      data: {
+        predictionId: p.id,
+        status: "auto_matched",
+        matchedAlarmId: alarmId,
+        actualEventAt: new Date(),
+      },
+    });
+  }
+}
+
+/** On-alarm: corre predicción triggered + propone remediación si política lo permite. */
+async function handleAlarmTriggeredFlow(
+  device: DeviceRow,
+  alarm: { id: string; type: string; message: string; severity: string },
+) {
+  // 1. Auto-match de predicciones abiertas (accuracy loop)
+  await autoMatchOpenPredictions(device.id, alarm.id, alarm.type).catch((err) =>
+    console.warn(`[alarms] auto-match failed: ${(err as Error).message}`),
+  );
+
+  // 2. Disparar predicción enmarcada en esta alarma — sin bloquear el worker
+  //    si MiniMax está lento. Corre en background.
+  void (async () => {
+    try {
+      await predictForPlant(device.plant.id, {
+        triggerKind: "alarm",
+        sourceAlarmId: alarm.id,
+        deviceId: device.id,
+      });
+    } catch (err) {
+      console.warn(`[alarms] predict trigger failed: ${(err as Error).message}`);
+    }
+  })();
+
+  // 3. Remediación sugerida si hay comando aplicable y política la permite
+  const commandId = suggestCommandForAlarm(alarm.type);
+  if (!commandId) return;
+  try {
+    const policyRow = await getOrCreatePolicy(device.plant.id);
+    const policy = toPolicyView(policyRow);
+    if (policy.autonomyLevel === "manual") {
+      // manual: ni siquiera proponer (queda para que el operador decida sin ruido)
+      return;
+    }
+    if (!policy.allowedCommands.includes(commandId)) return;
+    await propose({
+      plantId: device.plant.id,
+      deviceId: device.id,
+      deviceExternalId: device.externalId,
+      commandId,
+      reason: `Alarma ${alarm.severity}/${alarm.type}: ${alarm.message.slice(0, 140)}`,
+      alarmId: alarm.id,
+      proposedBy: "ai",
+    });
+  } catch (err) {
+    console.warn(`[alarms] propose remediation failed: ${(err as Error).message}`);
+  }
+}
+
 export async function ingestAlarms() {
   const started = Date.now();
   const devices = await prisma.device.findMany({
@@ -177,6 +257,13 @@ export async function ingestAlarms() {
         void fanoutAlarm(event).catch((err) =>
           console.warn(`[alarms] fanout failed for ${event.id}: ${(err as Error).message}`),
         );
+        // Trigger de predicción + remediación en background
+        void handleAlarmTriggeredFlow(d as DeviceRow, {
+          id: event.id,
+          type: event.type,
+          message: event.message,
+          severity: event.severity,
+        });
       } else if (event.kind === "resolved") {
         resolved++;
       }

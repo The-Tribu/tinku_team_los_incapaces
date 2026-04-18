@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { LocationPicker } from "@/components/sunhub/location-picker";
 
 type Provider = { slug: string; displayName: string };
 type FormState = {
@@ -124,6 +125,12 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
           <div className="space-y-3">
             <h3 className="font-heading text-base font-semibold">Ubicación</h3>
             <Field label="Región" value={form.region} onChange={(v) => update("region", v)} placeholder="Cundinamarca" />
+            <LocationPicker
+              lat={form.lat}
+              lng={form.lng}
+              region={form.region}
+              onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+            />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Latitud" value={form.lat} onChange={(v) => update("lat", v)} placeholder="4.60" />
               <Field label="Longitud" value={form.lng} onChange={(v) => update("lng", v)} placeholder="-74.07" />

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AppShell } from "@/components/sunhub/app-shell";
 import { prisma } from "@/lib/prisma";
+import { canWrite, getSessionUser } from "@/lib/auth";
 import { AlarmRow } from "./alarm-row";
+import { MockAlarmTrigger } from "./mock-alarm-trigger";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,16 @@ export default async function AlarmsPage({
   if (sp.status === "open") where.resolvedAt = null;
   if (sp.status === "resolved") where.resolvedAt = { not: null };
   if (sp.severity) where.severity = sp.severity;
+
+  const user = await getSessionUser();
+  const showMockTrigger = canWrite(user);
+  const mockPlants = showMockTrigger
+    ? await prisma.plant.findMany({
+        orderBy: [{ code: "asc" }],
+        select: { id: true, code: true, name: true },
+        take: 50,
+      })
+    : [];
 
   const [alarms, countOpen, countCritical] = await Promise.all([
     prisma.alarm.findMany({
@@ -39,6 +51,11 @@ export default async function AlarmsPage({
       title="Centro de Alarmas"
       subtitle={`${countOpen} abiertas · ${countCritical} críticas`}
     >
+      {showMockTrigger ? (
+        <div className="mb-4">
+          <MockAlarmTrigger plants={mockPlants} />
+        </div>
+      ) : null}
       <section className="mb-4 flex flex-wrap gap-2 text-xs">
         <Link
           href="/alarmas?status=open"

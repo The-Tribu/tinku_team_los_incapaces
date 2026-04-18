@@ -23,8 +23,9 @@ DC_MAIL_SMTP_PORT ?= 1025
 DC_MAIL_UI_PORT   ?= 8025
 
 .PHONY: help install db-up db-down db-reset db-push db-generate db-studio \
-        plants-sync ingest alarms cron dev build start lint bootstrap up clean mw-ping \
-        create-user data-reset smtp-up smtp-down smtp-reset
+        plants-sync ingest alarms cron dev build start lint bootstrap up up-demo clean mw-ping \
+        create-user data-reset smtp-up smtp-down smtp-reset smoke-deye \
+        seed-robert seed-robert-reset
 
 help:
 	@printf "\nSunHub · Makefile targets\n\n"
@@ -47,11 +48,15 @@ help:
 	@printf "  %-16s %s\n" "start"        "Arranca Next.js en modo producción"
 	@printf "  %-16s %s\n" "lint"         "Linter"
 	@printf "  %-16s %s\n" "mw-ping"      "Health-check del middleware"
+	@printf "  %-16s %s\n" "smoke-deye"   "Smoke test oficial Deye (18 endpoints). Usa MIDDLEWARE_API_KEY de .env.local"
 	@printf "  %-16s %s\n" "create-user"  "Crea o actualiza un usuario: make create-user EMAIL=... PASSWORD=... [ROLE=admin] [NAME=...]"
 	@printf "  %-16s %s\n" "data-reset"   "Borra todos los datos operacionales y re-sincroniza desde el middleware (preserva usuarios)"
 	@printf "\n"
 	@printf "  %-16s %s\n" "bootstrap"    "install + db-up + db-push + plants-sync"
 	@printf "  %-16s %s\n" "up"           "bootstrap + dev + cron en paralelo (Ctrl+C mata ambos)"
+	@printf "  %-16s %s\n" "up-demo"      "bootstrap + seed-robert + dev + cron (flujo demo con planta sintética TR-001)"
+	@printf "  %-16s %s\n" "seed-robert"  "Pobla Planta Robert (TR-001) con lecturas, baselines, predicciones y remediaciones"
+	@printf "  %-16s %s\n" "seed-robert-reset" "Igual que seed-robert pero borra primero los datos previos de TR-001"
 	@printf "  %-16s %s\n" "clean"        "Limpia .next/ y caches de build"
 	@printf "\n"
 
@@ -113,6 +118,12 @@ db-studio:
 plants-sync:
 	npm run plants:sync
 
+seed-robert:
+	npm run seed:robert
+
+seed-robert-reset:
+	npm run seed:robert -- --reset
+
 ingest:
 	npm run ingest
 
@@ -124,6 +135,18 @@ cron:
 
 mw-ping:
 	npm run mw:ping
+
+# Smoke test Deye (script vendorizado de The-Tribu/hackathon-provider-hub-docs).
+# Lee TEAM_KEY desde MIDDLEWARE_API_KEY en .env.local. Override con STATION_ID / DEVICE_SN.
+#   make smoke-deye STATION_ID=122825 DEVICE_SN=2503293234
+smoke-deye:
+	@if [ ! -f .env.local ]; then \
+	  echo "✗ falta .env.local con MIDDLEWARE_API_KEY"; exit 1; \
+	fi
+	@KEY=$$(grep -E '^MIDDLEWARE_API_KEY=' .env.local | cut -d= -f2- | tr -d '"'); \
+	  if [ -z "$$KEY" ]; then echo "✗ MIDDLEWARE_API_KEY vacía en .env.local"; exit 1; fi; \
+	  TEAM_KEY="$$KEY" $${STATION_ID:+STATION_ID=$$STATION_ID} $${DEVICE_SN:+DEVICE_SN=$$DEVICE_SN} \
+	    bash scripts/smoke-deye.sh
 
 # Reset de datos operacionales. Borra plants/devices/readings/alarms/predictions/contracts/reports
 # y re-sincroniza plantas reales desde el middleware. Preserva users/sessions/providers.
@@ -173,6 +196,17 @@ bootstrap: install db-up smtp-up db-push plants-sync
 up: bootstrap
 	@echo ""
 	@echo "▶ Arrancando Next.js + cron worker (Ctrl+C para detener ambos)…"
+	@trap 'kill 0' EXIT INT TERM; \
+	  npm run cron & \
+	  npm run dev; \
+	  wait
+
+# Flujo demo: bootstrap + seed sintético de Planta Robert + dev/cron.
+# Ideal para probar predicciones, remediaciones y alarmas mock sin depender
+# del middleware externo. El seed es idempotente.
+up-demo: bootstrap seed-robert
+	@echo ""
+	@echo "▶ Demo lista · Planta Robert (TR-001) sembrada. Arrancando Next.js + cron…"
 	@trap 'kill 0' EXIT INT TERM; \
 	  npm run cron & \
 	  npm run dev; \

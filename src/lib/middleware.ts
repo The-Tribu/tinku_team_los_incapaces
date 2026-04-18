@@ -29,6 +29,40 @@ export class MiddlewareError extends Error {
   }
 }
 
+/** Se lanza cuando agotamos los reintentos contra un 429 del middleware. */
+export class MiddlewareRateLimitError extends MiddlewareError {
+  constructor(
+    status: number,
+    body: string,
+    path: string,
+    public retryAfterSec: number,
+  ) {
+    super(status, body, path);
+    this.name = "MiddlewareRateLimitError";
+    this.message = `MW rate-limited (${retryAfterSec}s) on ${path}`;
+  }
+}
+
+function retryAfterSeconds(res: Response, bodyText: string): number {
+  // Preferir el header estándar; fallback al body custom del middleware.
+  const header = res.headers.get("Retry-After");
+  if (header) {
+    const n = Number(header);
+    if (Number.isFinite(n) && n > 0) return Math.min(n, 180);
+  }
+  try {
+    const parsed = JSON.parse(bodyText) as { retry_after_seconds?: number };
+    if (Number.isFinite(parsed.retry_after_seconds) && (parsed.retry_after_seconds ?? 0) > 0) {
+      return Math.min(parsed.retry_after_seconds!, 180);
+    }
+  } catch {
+    /* ignore */
+  }
+  return 5;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 function requireEnv() {
   const BASE = process.env.MIDDLEWARE_BASE_URL;
   const KEY = process.env.MIDDLEWARE_API_KEY;
@@ -37,71 +71,135 @@ function requireEnv() {
   return { BASE, KEY };
 }
 
+/** Cache en memoria con TTL para llamadas que cambian poco (station/list, etc). */
+type CacheEntry = { until: number; value: unknown };
+const mwCache = new Map<string, CacheEntry>();
+
+function cacheKey(path: string, init: RequestInit): string {
+  return `${init.method ?? "GET"} ${path} ${typeof init.body === "string" ? init.body : ""}`;
+}
+
+export type MwOptions = {
+  /** TTL en segundos. Si se define, se sirve desde caché mientras esté fresca. */
+  cacheTtlSec?: number;
+  /** Máx. reintentos ante 429 (default 2). */
+  maxRetries?: number;
+};
+
 export async function mw<T = unknown>(
   path: string,
   init: RequestInit = {},
+  opts: MwOptions = {},
 ): Promise<T> {
   const { BASE, KEY } = requireEnv();
   const url = path.startsWith("http") ? path : `${BASE}${path}`;
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: KEY,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      // Force identity: Caddy/CloudFront strip the content-encoding header,
-      // which leaves Node's fetch unable to auto-decompress the body.
-      "Accept-Encoding": "identity",
-      ...init.headers,
-    },
-    signal: AbortSignal.timeout(25_000),
-  });
-  // Read raw bytes so we can gunzip even when the middleware wraps a
-  // binary provider payload inside a JSON string.
-  const raw = Buffer.from(await res.arrayBuffer());
-  let text = raw.toString("binary");
+  const ttl = opts.cacheTtlSec ?? 0;
+  const key = ttl > 0 ? cacheKey(path, init) : "";
 
-  if (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b) {
-    try {
-      text = gunzipSync(raw).toString("utf8");
-    } catch {
+  if (ttl > 0) {
+    const hit = mwCache.get(key);
+    if (hit && hit.until > Date.now()) return hit.value as T;
+  }
+
+  const maxRetries = opts.maxRetries ?? 2;
+  let attempt = 0;
+  // Loop hasta consumir reintentos o recibir respuesta no-429.
+  while (true) {
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        // Force identity: Caddy/CloudFront strip the content-encoding header,
+        // which leaves Node's fetch unable to auto-decompress the body.
+        "Accept-Encoding": "identity",
+        ...init.headers,
+      },
+      signal: AbortSignal.timeout(25_000),
+    });
+    const raw = Buffer.from(await res.arrayBuffer());
+    let text: string;
+    if (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b) {
+      try {
+        text = gunzipSync(raw).toString("utf8");
+      } catch {
+        text = raw.toString("utf8");
+      }
+    } else {
       text = raw.toString("utf8");
     }
-  } else {
-    text = raw.toString("utf8");
-  }
 
-  if (!res.ok) throw new MiddlewareError(res.status, text, path);
+    if (res.status === 429) {
+      const wait = retryAfterSeconds(res, text);
+      if (attempt >= maxRetries) {
+        throw new MiddlewareRateLimitError(429, text, path, wait);
+      }
+      attempt++;
+      console.warn(`[mw] 429 on ${path} · retry ${attempt}/${maxRetries} in ${wait}s`);
+      await sleep(wait * 1000);
+      continue;
+    }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return text as unknown as T;
-  }
+    if (!res.ok) throw new MiddlewareError(res.status, text, path);
 
-  // Some provider responses come back as a JSON-wrapped compressed string.
-  if (typeof parsed === "string" && parsed.length > 1) {
-    const maybe = tryDecompress(parsed);
-    if (maybe !== parsed) {
-      try {
-        return JSON.parse(maybe) as T;
-      } catch {
-        return maybe as unknown as T;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      if (ttl > 0) mwCache.set(key, { until: Date.now() + ttl * 1000, value: text });
+      return text as unknown as T;
+    }
+
+    // Some provider responses come back as a JSON-wrapped compressed string.
+    if (typeof parsed === "string" && parsed.length > 1) {
+      const maybe = tryDecompress(parsed);
+      if (maybe !== parsed) {
+        try {
+          parsed = JSON.parse(maybe);
+        } catch {
+          parsed = maybe;
+        }
       }
     }
-  }
 
-  return parsed as T;
+    // Growatt devuelve HTTP 200 con `error_code: 10012` ("error_frequently_access")
+    // cuando la cuenta upstream entra en cooldown (varios minutos). Tratamos
+    // esto como rate-limit transitorio con backoff para que callers reintenten
+    // sin contaminar las métricas de ingestión.
+    if (path.startsWith("/growatt/") && parsed && typeof parsed === "object") {
+      const code = (parsed as { error_code?: number }).error_code;
+      if (code === 10012) {
+        const wait = 60;
+        if (attempt >= maxRetries) {
+          throw new MiddlewareRateLimitError(200, text, path, wait);
+        }
+        attempt++;
+        console.warn(`[mw] growatt 10012 on ${path} · retry ${attempt}/${maxRetries} in ${wait}s`);
+        await sleep(wait * 1000);
+        continue;
+      }
+    }
+
+    if (ttl > 0) mwCache.set(key, { until: Date.now() + ttl * 1000, value: parsed });
+    return parsed as T;
+  }
 }
 
-export const mwGet = <T = unknown>(path: string) => mw<T>(path, { method: "GET" });
+/** Invalida toda la caché in-memory. Útil en tests o tras un sync manual. */
+export function clearMwCache() {
+  mwCache.clear();
+}
 
-export const mwPost = <T = unknown>(path: string, body?: unknown) =>
-  mw<T>(path, {
-    method: "POST",
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+export const mwGet = <T = unknown>(path: string, opts?: MwOptions) =>
+  mw<T>(path, { method: "GET" }, opts);
+
+export const mwPost = <T = unknown>(path: string, body?: unknown, opts?: MwOptions) =>
+  mw<T>(
+    path,
+    { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) },
+    opts,
+  );
 
 export const PROVIDERS = [
   "growatt",

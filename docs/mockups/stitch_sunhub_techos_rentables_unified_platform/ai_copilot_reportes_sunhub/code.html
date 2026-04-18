@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html lang="es-CO"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#16A34A",
+                        accent: "#FACC15",
+                        info: "#0EA5E9",
+                        danger: "#DC2626",
+                        warning: "#F59E0B"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="text-slate-900">
+<!-- SideNavBar (Shared Component) -->
+<aside class="flex flex-col fixed left-0 top-0 h-full py-4 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 w-64 z-50">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-green-200">
+<span class="material-symbols-outlined">solar_power</span>
+</div>
+<div>
+<h1 class="text-lg font-black text-green-600 dark:text-green-500 leading-tight">SunHub</h1>
+<p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Operaciones de Energía</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Panel Principal</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="solar_power">solar_power</span>
+<span>Plantas Solares</span>
+</a>
+<!-- Active State: Copilot AI -->
+<a class="flex items-center gap-3 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-r-4 border-green-600 transition-all duration-200 ease-in-out font-sans text-sm font-semibold rounded-l-lg" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span>Copilot AI</span>
+<span class="ml-auto text-[10px]">✨</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span>Reportes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Ajustes</span>
+</a>
+</nav>
+<div class="px-6 pt-4 mt-auto border-t border-gray-100">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border-2 border-gray-100" data-alt="professional portrait of a clean-energy analyst in a modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2lHwqzKA2LlMyutASCMbcVpkv6xP9CP00m4Ayzpc0upKD0obPocV-bnzBUbWTvTXisE3VKwjc8roUaIB6sqDnKj7Au_rYAv9JNbarZVgg8K0Fg4tgBdDq3TI807Pz28PNqCb_qE1N4a7DWWms6U78l3GO837Zg0tlXcM2i2WD_pryDp59DKLJFtq8Sf9SbcX-o9j4XfPWcnF4FrLg3E6etQvEzWpcxUsofbZ0wjWhj8oFtZPTUZxJpw4K9TIx1a_ZL73m9v0172Y"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Analista Senior</p>
+<p class="text-[10px] text-gray-500 truncate">techosrentables.co</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="pl-64 h-screen flex flex-col bg-[#F8FAFC]">
+<!-- TopAppBar (Shared Component) -->
+<header class="flex justify-between items-center h-16 px-8 w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm z-40 sticky top-0">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+<input class="w-full bg-gray-50 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-green-500/20" placeholder="Buscar plantas, dispositivos o reportes..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4 ml-8">
+<button class="p-2 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-full">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="h-8 w-[1px] bg-gray-200 mx-2"></div>
+<div class="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-green-600">account_circle</span>
+<span class="text-xs font-medium text-gray-700">Mi Cuenta</span>
+</div>
+</div>
+</header>
+<!-- Dashboard Content: Split Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- LEFT HALF: Conversational AI Copilot (55%) -->
+<section class="w-[55%] flex flex-col border-r border-gray-200 bg-white">
+<div class="p-6 border-b border-gray-100">
+<div class="flex items-center gap-2 mb-1">
+<h2 class="text-xl font-bold font-headline text-slate-900">SunHub Copilot ✨</h2>
+<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">AI ACTIVE</span>
+</div>
+<p class="text-sm text-gray-500">Pregúntame lo que sea sobre tu operación. Conectado a 218 plantas y 1,247 dispositivos.</p>
+</div>
+<!-- Chat Messages -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+<!-- User Message -->
+<div class="flex flex-col items-end">
+<div class="bg-gray-100 text-slate-800 px-4 py-3 rounded-2xl rounded-tr-none max-w-[80%] text-sm shadow-sm">
+                            ¿Qué clientes tienen mayor riesgo de penalización contractual este mes?
+                        </div>
+<span class="text-[10px] text-gray-400 mt-1 mr-2 uppercase font-semibold">Tú • 10:42 AM</span>
+</div>
+<!-- Assistant Message -->
+<div class="flex flex-col items-start">
+<div class="bg-white border-l-4 border-green-600 p-5 rounded-2xl rounded-tl-none shadow-md max-w-[90%] space-y-3">
+<div class="flex items-center gap-2 text-green-700">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="text-xs font-bold tracking-wide uppercase">Copilot Analysis</span>
+</div>
+<p class="text-sm text-slate-700 leading-relaxed">
+                                Identifiqué <span class="font-bold text-slate-900">3 clientes</span> con alto riesgo de penalización en abril 2026 debido a desviaciones críticas de desempeño:
+                            </p>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-2 rounded bg-red-50 border border-red-100">
+<span class="text-xs font-medium">Bavaria - Tibitó</span>
+<span class="text-xs text-red-600 font-bold">71.8% PR (-$2.4M)</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-amber-50 border border-amber-100">
+<span class="text-xs font-medium">Carvajal - Cali</span>
+<span class="text-xs text-amber-600 font-bold">Offline (-$1.1M)</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-gray-50 border border-gray-100">
+<span class="text-xs font-medium">Postobón - Yumbo</span>
+<span class="text-xs text-gray-600 font-bold">Baja gen (-$0.68M)</span>
+</div>
+</div>
+<p class="text-sm border-t pt-3 mt-2">
+                                Total exposición estimada: <span class="font-black text-slate-900">$4.18M COP</span>.
+                            </p>
+<!-- Action Chips -->
+<div class="flex flex-wrap gap-2 pt-2">
+<button class="text-[11px] font-bold flex items-center gap-1 bg-white border border-gray-200 px-3 py-1.5 rounded-full hover:border-green-500 hover:text-green-600 transition-colors">
+<span class="material-symbols-outlined text-[14px]">description</span> Generar reporte ejecutivo
+                                </button>
+<button class="text-[11px] font-bold flex items-center gap-1 bg-white border border-gray-200 px-3 py-1.5 rounded-full hover:border-green-500 hover:text-green-600 transition-colors">
+<span class="material-symbols-outlined text-[14px]">mail</span> Notificar a cuenta comercial
+                                </button>
+<button class="text-[11px] font-bold flex items-center gap-1 bg-white border border-gray-200 px-3 py-1.5 rounded-full hover:border-green-500 hover:text-green-600 transition-colors">
+<span class="material-symbols-outlined text-[14px]">build</span> Crear orden de trabajo
+                                </button>
+</div>
+</div>
+</div>
+<!-- User Message 2 -->
+<div class="flex flex-col items-end">
+<div class="bg-gray-100 text-slate-800 px-4 py-3 rounded-2xl rounded-tr-none max-w-[80%] text-sm shadow-sm">
+                            Generá el reporte mensual de Grupo Éxito CD Envigado
+                        </div>
+</div>
+<!-- Assistant Message 2 (File Generation) -->
+<div class="flex flex-col items-start">
+<div class="bg-white border-l-4 border-green-600 p-5 rounded-2xl rounded-tl-none shadow-md max-w-[90%] space-y-4">
+<p class="text-sm text-slate-700 italic flex items-center gap-2">
+<span class="w-2 h-2 bg-green-500 rounded-full"></span> Procesando 47,820 lecturas de sensores...
+                            </p>
+<div class="flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50">
+<div class="w-12 h-16 bg-red-500 rounded flex items-center justify-center text-white relative overflow-hidden shadow-sm">
+<span class="text-[8px] font-black uppercase mb-4">PDF</span>
+<span class="material-symbols-outlined absolute bottom-1 right-1 opacity-40">picture_as_pdf</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-slate-900 leading-tight">Reporte Abril 2026 - Grupo Éxito CD Envigado</p>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]">check_circle</span> 98% Cumplimiento
+                                        </span>
+<span class="text-[10px] text-gray-400">2.4 MB • PDF</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors">
+<span class="material-symbols-outlined text-sm">download</span> Descargar
+                                </button>
+<button class="px-3 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
+<span class="material-symbols-outlined text-sm">mail</span>
+</button>
+<button class="px-3 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
+<span class="material-symbols-outlined text-sm">share</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-4 border-t border-gray-100 bg-white">
+<div class="flex flex-wrap gap-2 mb-3">
+<button class="text-[10px] font-semibold bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 hover:bg-blue-100">¿Resumen de generación ayer?</button>
+<button class="text-[10px] font-semibold bg-amber-50 text-amber-600 px-3 py-1 rounded-full border border-amber-100 hover:bg-amber-100">Alertas activas en SRNE</button>
+<button class="text-[10px] font-semibold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-100 hover:bg-green-100">Top 5 plantas eficientes</button>
+</div>
+<div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+<button class="p-2 text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">attach_file</span></button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2" placeholder="Escribe tu pregunta..." type="text"/>
+<button class="p-2 text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">mic</span></button>
+<button class="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</section>
+<!-- RIGHT HALF: Reports Center (45%) -->
+<section class="w-[45%] flex flex-col overflow-y-auto bg-[#F8FAFC]">
+<div class="p-8">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h2 class="text-2xl font-black font-headline text-slate-900 leading-tight">Reportes automáticos</h2>
+<p class="text-sm text-gray-500">Centro de inteligencia documental</p>
+</div>
+<div class="flex bg-white p-1 rounded-lg border border-gray-200 text-[11px] font-bold">
+<button class="px-4 py-1.5 bg-gray-100 text-slate-900 rounded-md">Programados</button>
+<button class="px-4 py-1.5 text-gray-500 hover:bg-gray-50 rounded-md">Generados</button>
+<button class="px-4 py-1.5 text-gray-500 hover:bg-gray-50 rounded-md">Plantillas</button>
+</div>
+</div>
+<!-- Progress Section -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Generación automática mensual</p>
+<p class="text-2xl font-black text-slate-900">214/218 <span class="text-sm font-medium text-gray-500">listos</span></p>
+</div>
+<div class="bg-yellow-50 text-yellow-700 px-3 py-2 rounded-lg border border-yellow-100 text-center">
+<p class="text-[10px] font-bold uppercase tracking-tighter">Tiempo ahorrado</p>
+<p class="text-lg font-black">128 horas 🎉</p>
+</div>
+</div>
+<div class="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+<div class="bg-green-600 h-full rounded-full" style="width: 98%"></div>
+</div>
+<p class="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">sync</span> Actualizado hace 4 minutos
+                        </p>
+</div>
+<!-- Reports Grid -->
+<h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Reportes Recientes</h3>
+<div class="grid grid-cols-1 gap-4">
+<!-- Report Card 1 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-green-200 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="minimalist logo for a logistics company in bold blue" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcEeCj1xL7_HJ_uSNCa84zAQ9489-c5OSgrW99SBfEHtrgv9tTeB_k_6gaE9TRceGswLhnuHk2n8oaQtIo6YQRAqKAYXspuqkv_w0eNLrr5o_2ZnQXQR5__E_TdmDvwk3wIQQ-GB3wdqFL84YJVhsRKGcce3s9Y1HbvNnl0JbZb5IlxMkDdn2qF6azBSL0IHki3C5PICmz292U4FXMcxVM8D1TRXQeIN1ZvcawpMMWwXIjs4BsPHvVTS4zhbbSy7KcpKz0Ca0zBjI"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-bold text-slate-900 group-hover:text-green-600 transition-colors">Bavaria CD Tibitó</h4>
+<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-700">✓ Enviado</span>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-[11px] text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">calendar_month</span> Abr 2026
+                                        </span>
+<span class="text-[11px] text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">bolt</span> 842 MWh
+                                        </span>
+</div>
+</div>
+<button class="p-2 text-gray-300 hover:text-green-600">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Report Card 2 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="corporate brand identity icon for a retail group" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEpl6hlV6BBF03ZNgPyuhMpJOKwvlqseaZzYB04O4zT5sSoCVJeLvcZNN8kVuV0oVnm1gTgkrAoPBDBhsWlOzPKuPLxATHFRdkOWPOWAN_4jC4k-p0JDPYLbVXcWHId4zvXl0HDJnrPUzw7J3nbCA9uvKRoH0ElCpgxVwa2a7MF_xjYrowhcP3qKwmu8wckBnJHe1zJwqWgWy9RM70GOAmcMmArdgywqijDPuT2QVejhA-2iQ3dg_bzrGhXauVklbeoqI5vNCanHk"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-bold text-slate-900">Postobón Yumbo</h4>
+<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">⏳ Generando</span>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-[11px] text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">calendar_month</span> Abr 2026
+                                        </span>
+<span class="text-[11px] text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">analytics</span> 64% completado
+                                        </span>
+</div>
+</div>
+<div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+</div>
+</div>
+<!-- Report Card 3 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 group opacity-75">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="modern corporate icon for an industrial services company" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5wtNvxMFdgr1oIawPKyRHiacYMMgYfbiI0rGmiNDKcF58tGxnpICEhmx0SN1gZDdFI4hcyHgc5WrniJ2cfoLK2sT7ufi2f20g4NumePuJTzeNUNIVMImcP4D4gibOvc4QqSoln_fVZR93pfyfERLpjeytt2H8SSaFMnu2DXHjV6EgAbrGoG_Z6ST_2C_wFJg99H_0oYNBepsWJf7RnOrFytft8YhQBwIObT2qK2bnoYWtmYm_ieFWw-6ci8pZfZrHOH9xgHheRcY"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-bold text-slate-900">Carvajal Cali</h4>
+<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500">📝 Borrador</span>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-[11px] text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">error</span> Pendiente Datos SRNE
+                                        </span>
+</div>
+</div>
+<button class="p-2 text-gray-300 hover:text-slate-600 transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ROI Banner -->
+<div class="mt-8 bg-gradient-to-br from-green-600 to-green-800 p-6 rounded-2xl text-white relative overflow-hidden">
+<div class="relative z-10">
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mb-1">Impacto Operativo</p>
+<h4 class="text-xl font-black mb-1">ROI: 130 horas/mes recuperadas</h4>
+<p class="text-xs opacity-90 leading-relaxed max-w-[80%]">
+                                El sistema ha automatizado el 98% de la reportería este mes, permitiendo que tu equipo se enfoque en el mantenimiento preventivo.
+                            </p>
+</div>
+<span class="material-symbols-outlined absolute -right-4 -bottom-4 text-9xl opacity-10">analytics</span>
+<div class="absolute top-0 right-0 w-32 h-full bg-white/5 skew-x-[-20deg] translate-x-12"></div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</body></html>

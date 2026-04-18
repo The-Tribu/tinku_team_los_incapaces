@@ -13,14 +13,21 @@ export default async function PrediccionesPage() {
       include: { client: { select: { name: true } } },
     }),
     prisma.prediction.findMany({
-      take: 30,
+      take: 60,
       orderBy: { generatedAt: "desc" },
       include: {
         device: {
           select: {
             externalId: true,
-            plant: { select: { name: true, code: true, client: { select: { name: true } } } },
+            plant: { select: { id: true, name: true, code: true, client: { select: { name: true } } } },
           },
+        },
+        outcome: true,
+        sourceAlarm: { select: { id: true, severity: true, type: true, message: true } },
+        remediations: {
+          select: { id: true, commandType: true, status: true, executionMode: true },
+          orderBy: { proposedAt: "desc" },
+          take: 3,
         },
       },
     }),
@@ -28,8 +35,8 @@ export default async function PrediccionesPage() {
 
   return (
     <AppShell
-      title="Predicción de fallas (MiniMax + heurística)"
-      subtitle="Adelántate 3–14 días a la próxima falla. No más ir a la planta a buscar el problema."
+      title="Predicción de fallas · heurística + RAG + MiniMax"
+      subtitle="Proactivo (anomalías), reactivo (alarmas) y programado — con memoria de aciertos pasados"
     >
       <PredictionsConsole
         canRun={canWrite(me)}
@@ -48,9 +55,22 @@ export default async function PrediccionesPage() {
           rootCause: r.rootCause ?? "",
           suggestedAction: r.suggestedAction ?? "",
           generatedAt: r.generatedAt.toISOString(),
+          modelVersion: r.modelVersion ?? "heuristic",
+          triggerKind: (r.triggerKind as "scheduled" | "alarm" | "anomaly") ?? "scheduled",
+          sourceAlarm: r.sourceAlarm,
+          plantId: r.device.plant.id,
           plantName: r.device.plant.name,
           plantCode: r.device.plant.code,
           client: r.device.plant.client.name,
+          outcome: r.outcome
+            ? { status: r.outcome.status, notes: r.outcome.notes, decidedAt: r.outcome.decidedAt.toISOString() }
+            : null,
+          remediations: r.remediations.map((rem) => ({
+            id: rem.id,
+            commandType: rem.commandType,
+            status: rem.status,
+            executionMode: rem.executionMode,
+          })),
         }))}
       />
     </AppShell>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: "#16A34A",
+                dark: "#15803D"
+              },
+              sun: "#FACC15",
+              info: "#0EA5E9",
+              danger: "#DC2626",
+              warning: "#F59E0B",
+              slate: {
+                50: "#F8FAFC",
+                100: "#F1F5F9",
+                200: "#E2E8F0",
+                300: "#CBD5E1",
+                400: "#94A3B8",
+                500: "#64748B",
+                600: "#475569",
+                700: "#334155",
+                800: "#1E293B",
+                900: "#0F172A",
+                950: "#020617"
+              }
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "12px",
+              "xl": "1.5rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              headline: ["Plus Jakarta Sans", "sans-serif"],
+              body: ["Inter", "sans-serif"],
+              label: ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .weather-grid-pattern {
+            background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col pt-4 bg-slate-50 dark:bg-slate-950 h-screen w-64 border-r border-slate-200 dark:border-slate-800 z-50">
+<div class="px-6 mb-8 flex items-center gap-3">
+<span class="material-symbols-outlined text-green-600 text-3xl" style="font-variation-settings: 'FILL' 1;">solar_power</span>
+<div>
+<h1 class="text-lg font-black text-green-600 dark:text-green-500 leading-none">SunHub</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Energy Operations</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Dashboard -->
+<div class="group cursor-pointer text-slate-600 dark:text-slate-400 flex items-center px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all">
+<span class="material-symbols-outlined mr-3" data-icon="dashboard">dashboard</span>
+<span class="text-xs font-medium uppercase tracking-wider">Dashboard</span>
+</div>
+<!-- Plantas -->
+<div class="group cursor-pointer text-slate-600 dark:text-slate-400 flex items-center px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all">
+<span class="material-symbols-outlined mr-3" data-icon="solar_power">solar_power</span>
+<span class="text-xs font-medium uppercase tracking-wider">Plantas</span>
+</div>
+<!-- Clima (ACTIVE) -->
+<div class="group cursor-pointer bg-white dark:bg-slate-900 text-green-600 dark:text-green-400 border-r-4 border-green-600 dark:border-green-500 flex items-center px-4 py-3 transition-all">
+<span class="material-symbols-outlined mr-3" data-icon="cloud" style="font-variation-settings: 'FILL' 1;">cloud</span>
+<span class="text-xs font-medium uppercase tracking-wider">Clima</span>
+</div>
+<!-- Alertas -->
+<div class="group cursor-pointer text-slate-600 dark:text-slate-400 flex items-center px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all">
+<span class="material-symbols-outlined mr-3" data-icon="warning">warning</span>
+<span class="text-xs font-medium uppercase tracking-wider">Alertas</span>
+</div>
+<!-- Reportes -->
+<div class="group cursor-pointer text-slate-600 dark:text-slate-400 flex items-center px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all">
+<span class="material-symbols-outlined mr-3" data-icon="assessment">assessment</span>
+<span class="text-xs font-medium uppercase tracking-wider">Reportes</span>
+</div>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 p-2 rounded-lg bg-slate-100 dark:bg-slate-900">
+<img alt="Avatar" class="w-8 h-8 rounded-full object-cover" data-alt="professional male portrait for business profile in clean office setting with natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz_-S16LJLHGGA0NcdEoanVlhic8oArQXCelIpUTqunB0GO-GjATvc59WFV6dzAPJXjmI-dUMINq1pEU6QhCWzT8PA7E65fdLiTPgQtzsFvIGzIDWFp_6yZIHfWlz4y2w1HL4JmKpN_Qc8lWSX0uqEXS3hi7j54ti7PqyZmO6HVW8bVstvZkP4Bn8t6G6ES4p07SJ6caycZNyP_I_K5FcDe0KH7gGPY4iozdXdevP5wOfihUzAj9FAm9BzbZKM3a75DWTg7H-DXXA"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Operador Central</p>
+<p class="text-[10px] text-slate-500 truncate text-green-600">En línea</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="ml-64 min-h-screen">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-6 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="w-full bg-slate-50 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-green-500/20" placeholder="Buscar plantas, regiones o alertas..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-8 max-w-7xl mx-auto space-y-8">
+<!-- Page Header -->
+<section>
+<h2 class="text-3xl font-extrabold font-headline text-slate-900 tracking-tight">Inteligencia climática</h2>
+<p class="text-slate-500 mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-info text-lg">info</span>
+                    Pronóstico meteorológico + radiación solar cruzado con 218 plantas · powered by Open-Meteo
+                </p>
+</section>
+<!-- Row 1: KPI Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cielo y Nubes</span>
+<span class="p-2 bg-slate-50 rounded-lg text-slate-600 material-symbols-outlined">filter_drama</span>
+</div>
+<p class="text-slate-700 text-sm font-medium mb-1">🌤 Plantas bajo nubosidad densa (hoy)</p>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-bold font-headline">42</span>
+<span class="text-slate-400 font-medium pb-1">/ 218</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Generación 24h</span>
+<span class="p-2 bg-green-50 rounded-lg text-green-600 material-symbols-outlined">bolt</span>
+</div>
+<p class="text-slate-700 text-sm font-medium mb-1">⚡ Generación proyectada</p>
+<div class="flex items-center gap-2">
+<span class="text-3xl font-bold font-headline">38.4</span>
+<span class="text-lg font-bold text-slate-400">MWh</span>
+<span class="ml-auto text-xs font-bold text-danger bg-red-50 px-2 py-1 rounded">-15% vs típico</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Alertas Lluvia</span>
+<span class="p-2 bg-blue-50 rounded-lg text-blue-600 material-symbols-outlined">rainy</span>
+</div>
+<p class="text-slate-700 text-sm font-medium mb-1">🌧 Regiones con alerta</p>
+<div class="flex items-center gap-2">
+<span class="text-3xl font-bold font-headline">3</span>
+<div class="flex flex-wrap gap-1 ml-2">
+<span class="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">Antioquia</span>
+<span class="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded">Atlántico</span>
+</div>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Técnico</span>
+<span class="p-2 bg-sun/10 rounded-lg text-amber-600 material-symbols-outlined">device_thermostat</span>
+</div>
+<p class="text-slate-700 text-sm font-medium mb-1">🌡 Temp. promedio flota</p>
+<div class="flex items-center gap-2">
+<span class="text-3xl font-bold font-headline">26.8°C</span>
+<span class="text-xs font-medium text-amber-600">+1.8°C vs óptimo</span>
+</div>
+</div>
+</div>
+<!-- Row 2: Map and Alerts -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Map Left (60%) -->
+<div class="col-span-12 lg:col-span-7 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+<div class="p-5 border-b border-slate-100 flex justify-between items-center">
+<h3 class="font-bold text-slate-900">Mapa climático de Colombia con plantas</h3>
+<div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+<span class="w-2 h-2 rounded-full bg-green-500"></span> Óptimo
+                            <span class="w-2 h-2 rounded-full bg-amber-500"></span> -15%
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span> -25%
+                        </div>
+</div>
+<div class="relative flex-1 bg-slate-100 weather-grid-pattern min-h-[450px]">
+<!-- Decorative Map Representation -->
+<img alt="Map of Colombia" class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-multiply" data-alt="clean political map of Colombia showing departments with topographic textures in minimalist aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2k_DCkHIvXX8sJ96c_dA7GbP9fl9XjgncUI8MCJMFoXjkDcYyCObMnO87AAbzUpZUbuwka7H0U_nMumdZ2KoGPYPycm3hfoYdvEjWnliuNjuTzdFlUTLkDC7bK88IAkk54WRVGKDpa4C0IT1a5Sqx7nEhdYLlSC2t0jVYRZQCJqvqH8HuxceYlDLQrpkm3C6ou9rZ2Qip4mniXyeV78F1gM4vDc9mkd4YJolORIGQhr1NheTvKaEAEQsrRFCnGtehzNifNNa58EE"/>
+<!-- Regions Overlay Simulation -->
+<div class="absolute inset-0 p-8 flex flex-col justify-center items-center pointer-events-none">
+<!-- Atlántico Callout -->
+<div class="absolute top-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-lg pointer-events-auto max-w-[200px]">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-amber-500 material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">light_mode</span>
+<span class="text-xs font-black uppercase">Atlántico</span>
+</div>
+<p class="text-[10px] text-slate-600">☀️ Radiación: <strong>820 W/m²</strong></p>
+<p class="text-[10px] text-slate-600">Generación: <strong class="text-green-600">+5%</strong></p>
+</div>
+<!-- Antioquia Callout -->
+<div class="absolute top-40 left-1/4 bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-lg border-l-4 border-l-blue-500 pointer-events-auto max-w-[200px]">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-blue-500 material-symbols-outlined text-sm">thunderstorm</span>
+<span class="text-xs font-black uppercase">Antioquia</span>
+</div>
+<p class="text-[10px] text-slate-600">🌧 Radiación: <strong>340 W/m²</strong></p>
+<p class="text-[10px] text-slate-600">Alerta: <strong class="text-danger">-28% (6h)</strong></p>
+</div>
+<!-- Valle Callout -->
+<div class="absolute bottom-20 left-1/3 bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-lg pointer-events-auto max-w-[200px]">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-slate-400 material-symbols-outlined text-sm">cloud</span>
+<span class="text-xs font-black uppercase text-slate-800">Valle del Cauca</span>
+</div>
+<p class="text-[10px] text-slate-600">⛅ Radiación: <strong>620 W/m²</strong></p>
+<p class="text-[10px] text-slate-600">Estado: <strong class="text-info">Normal</strong></p>
+</div>
+</div>
+<!-- Legend -->
+<div class="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-sm border border-slate-200 w-48">
+<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase">Radiación solar (W/m²)</p>
+<div class="h-2 w-full bg-gradient-to-r from-blue-200 via-yellow-200 to-orange-500 rounded-full mb-1"></div>
+<div class="flex justify-between text-[8px] font-bold text-slate-400">
+<span>100</span>
+<span>500</span>
+<span>1000+</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Alerts Right (40%) -->
+<div class="col-span-12 lg:col-span-5 flex flex-col gap-4">
+<div class="p-2 flex items-center justify-between">
+<h3 class="font-bold text-slate-900">Alertas operativas (24-72h)</h3>
+<span class="text-xs text-info font-bold cursor-pointer hover:underline">Ver todas</span>
+</div>
+<!-- Amber Alert -->
+<div class="bg-amber-50 border border-amber-200 p-4 rounded-lg flex gap-4">
+<div class="mt-1">
+<span class="material-symbols-outlined text-amber-600 text-2xl">bolt</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-bold text-amber-900">⚠ Tormenta eléctrica - Antioquia</h4>
+<span class="text-[10px] font-bold bg-amber-200 text-amber-800 px-2 py-0.5 rounded">ALTA</span>
+</div>
+<p class="text-xs text-amber-800/80 mt-1">Impacto -65%, riesgo SLA elevado. </p>
+<div class="mt-3 bg-white/60 p-2 rounded border border-amber-200">
+<p class="text-[10px] font-bold text-amber-900 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">smart_toy</span> Copilot Sugiere:
+                                </p>
+<p class="text-[10px] text-amber-800">Notificar a Éxito Medellín y Postobón Envigado sobre posible caída de producción.</p>
+</div>
+</div>
+</div>
+<!-- Blue Alert -->
+<div class="bg-blue-50 border border-blue-200 p-4 rounded-lg flex gap-4">
+<div class="mt-1">
+<span class="material-symbols-outlined text-blue-600 text-2xl">rainy</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-blue-900">🌧 Lluvia moderada - Atlántico</h4>
+<p class="text-xs text-blue-800/80 mt-1">Mañana 08:00 - 14:00 (Ventana crítica). Impacto estimado del -18% en captación.</p>
+</div>
+</div>
+<!-- Green Alert -->
+<div class="bg-green-50 border border-green-200 p-4 rounded-lg flex gap-4">
+<div class="mt-1">
+<span class="material-symbols-outlined text-green-600 text-2xl">wb_sunny</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-green-900">☀️ Ventana óptima de radiación</h4>
+<p class="text-xs text-green-800/80 mt-1">Valle y Cundinamarca: +8% impacto. Recomendado para inspecciones preventivas en sitio.</p>
+</div>
+</div>
+<!-- Amber Alert 2 -->
+<div class="bg-orange-50 border border-orange-200 p-4 rounded-lg flex gap-4">
+<div class="mt-1">
+<span class="material-symbols-outlined text-orange-600 text-2xl">thermostat_carbon</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-orange-900">🌡 Ola de calor - Tolima, Huila</h4>
+<p class="text-xs text-orange-800/80 mt-1">34°C sostenidos. Riesgo de overheat para inversores Growatt/SRNE en plantas tipo A.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Row 3: 7-Day Chart -->
+<section class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="font-bold text-slate-900">Impacto proyectado 7 días</h3>
+<p class="text-xs text-slate-500">Comparativa Generación Real Esperada vs. Ideal Teórica</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-slate-200"></span>
+<span class="text-xs text-slate-500 font-medium">Generación Ideal</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-info"></span>
+<span class="text-xs text-slate-500 font-medium">Proyección Climática</span>
+</div>
+</div>
+</div>
+<div class="h-64 flex items-end gap-2 relative">
+<!-- Placeholder for Chart Graphics -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+<div class="border-t border-slate-300 w-full"></div>
+<div class="border-t border-slate-300 w-full"></div>
+<div class="border-t border-slate-300 w-full"></div>
+<div class="border-t border-slate-300 w-full"></div>
+</div>
+<!-- Chart Bars/Lines Simulation -->
+<div class="flex-1 h-full flex items-end justify-around px-4">
+<div class="w-12 bg-slate-100 rounded-t h-[80%] relative group">
+<div class="absolute bottom-0 w-full bg-info/40 h-[90%] rounded-t"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">LUN</span>
+</div>
+<div class="w-12 bg-slate-100 rounded-t h-[85%] relative">
+<div class="absolute bottom-0 w-full bg-info/40 h-[70%] rounded-t"></div>
+<!-- Annotation -->
+<div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 text-white p-2 rounded text-[9px] w-24 z-10">
+                                Lluvia Antioquia <span class="text-red-400">-12.4 MWh</span>
+</div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">MAR</span>
+</div>
+<div class="w-12 bg-slate-100 rounded-t h-[82%] relative">
+<div class="absolute bottom-0 w-full bg-info/40 h-[80%] rounded-t"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">MIE</span>
+</div>
+<div class="w-12 bg-slate-100 rounded-t h-[88%] relative">
+<div class="absolute bottom-0 w-full bg-info/40 h-[95%] rounded-t"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">JUE</span>
+</div>
+<div class="w-12 bg-slate-100 rounded-t h-[90%] relative">
+<div class="absolute bottom-0 w-full bg-info/40 h-[85%] rounded-t"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">VIE</span>
+</div>
+<div class="w-12 bg-slate-100 rounded-t h-[85%] relative">
+<div class="absolute bottom-0 w-full bg-info/40 h-[75%] rounded-t"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">SAB</span>
+</div>
+<div class="w-12 bg-slate-100 rounded-t h-[80%] relative">
+<div class="absolute bottom-0 w-full bg-info/40 h-[78%] rounded-t"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400">DOM</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Row 4: Impacto por Marca -->
+<section class="space-y-4">
+<h3 class="font-bold text-slate-900">Impacto por marca ante condiciones actuales</h3>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+<div class="bg-white p-4 rounded-lg border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-2">Growatt</span>
+<div class="text-xl font-black text-amber-500 mb-1">-14%</div>
+<div class="w-2 h-2 rounded-full bg-amber-500"></div>
+</div>
+<div class="bg-white p-4 rounded-lg border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-2">Huawei</span>
+<div class="text-xl font-black text-green-500 mb-1">-9%</div>
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+</div>
+<div class="bg-white p-4 rounded-lg border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-2">DeyeCloud</span>
+<div class="text-xl font-black text-green-500 mb-1">-11%</div>
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+</div>
+<div class="bg-white p-4 rounded-lg border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-2">Hoymiles</span>
+<div class="text-xl font-black text-red-500 mb-1">-18%</div>
+<div class="w-2 h-2 rounded-full bg-red-500"></div>
+</div>
+<div class="bg-white p-4 rounded-lg border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-2">SRNE</span>
+<div class="text-xl font-black text-amber-500 mb-1">-13%</div>
+<div class="w-2 h-2 rounded-full bg-amber-500"></div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="pt-8 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-400 font-medium">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    Última actualización del pronóstico: hace 8 min · Open-Meteo + NASA POWER
+                </div>
+<div>
+                    SunHub Operations v2.4.0
+                </div>
+</footer>
+</div>
+</main>
+</body></html>

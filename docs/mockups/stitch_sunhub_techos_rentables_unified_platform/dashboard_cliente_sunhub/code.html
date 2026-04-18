@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es-CO"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#171d16",
+                        "surface-container-highest": "#dde5d9",
+                        "on-surface": "#171d16",
+                        "surface-bright": "#f4fcf0",
+                        "surface-variant": "#dde5d9",
+                        "surface-dim": "#d5dcd1",
+                        "surface-container": "#e9f0e5",
+                        "inverse-on-surface": "#ecf3e7",
+                        "inverse-primary": "#62df7d",
+                        "tertiary": "#00628d",
+                        "secondary-fixed-dim": "#eec200",
+                        "tertiary-container": "#007cb1",
+                        "on-primary-fixed-variant": "#005320",
+                        "on-secondary-fixed-variant": "#574500",
+                        "inverse-surface": "#2b322b",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#c9e6ff",
+                        "primary-container": "#00873a",
+                        "on-tertiary-fixed-variant": "#004c6e",
+                        "on-tertiary-fixed": "#001e2f",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#f7fff2",
+                        "primary-fixed-dim": "#62df7d",
+                        "on-secondary-container": "#6f5900",
+                        "on-error-container": "#93000a",
+                        "primary": "#006b2c",
+                        "secondary-fixed": "#ffe083",
+                        "surface-container-high": "#e3eadf",
+                        "tertiary-fixed-dim": "#89ceff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#eff6ea",
+                        "surface": "#f4fcf0",
+                        "outline": "#6e7b6c",
+                        "on-secondary-fixed": "#231b00",
+                        "on-primary-fixed": "#002109",
+                        "surface-tint": "#006e2d",
+                        "on-surface-variant": "#3e4a3d",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#fcfcff",
+                        "primary-fixed": "#7ffc97",
+                        "outline-variant": "#bdcaba",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#735c00",
+                        "secondary-container": "#fed01b",
+                        "background": "#f4fcf0",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-50 bg-[#f4fcf0] dark:bg-stone-950 flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="Professional corporate logo of a commercial retail leader in high-end office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhJk3n3k39Pc7VKNGvG1xemrDpKtPo6kbGXh4wzMSXCyZ1WPHl6i-lwL-Px8kuY3QqFagcTlVMSjQNzjoV9b2-t1EVWcWxTRN97ytGNuHmK3lgHsibIUBbPV153GQBQumpQ79VshB_5MuEFLz948BdYUIEKdI3qTAQyxj2mj0-e_3lR5JjyNyIZp5AwYy9buPRbA-GijFx0KVmyV1Hnm9jNuCxapJhhqe558uEV7q_QJMdlFaim2wY8qihBK8JdC0A8LjdQtDfxrc"/>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tight text-[#16A34A] dark:text-[#22C55E]">Hola, Éxito 👋</h1>
+<p class="text-xs font-medium text-stone-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> CD Envigado · soleado 24°C ☀️
+                </p>
+</div>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#e3eadf] dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-[#16A34A] dark:text-[#22C55E]">notifications</span>
+</button>
+</header>
+<main class="px-5 space-y-6 max-w-lg mx-auto pt-4">
+<!-- Hero Card (Producción Hoy) -->
+<section class="relative bg-gradient-to-br from-primary to-primary-container rounded-xl p-8 text-on-primary overflow-hidden shadow-2xl">
+<div class="relative z-10">
+<span class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-semibold mb-6">
+<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                    Generando · 42.1 kW ahora mismo
+                </span>
+<p class="text-on-primary-container/80 text-sm font-medium mb-1">Producción hoy</p>
+<div class="flex items-baseline gap-2 mb-2">
+<h2 class="text-6xl font-extrabold tracking-tighter">347</h2>
+<span class="text-2xl font-bold">kWh</span>
+</div>
+<p class="text-primary-fixed font-semibold flex items-center gap-1 text-sm">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                    +4.2% vs promedio
+                </p>
+</div>
+<!-- Sparkline Visual -->
+<div class="absolute bottom-0 left-0 right-0 h-24 opacity-30 pointer-events-none">
+<svg class="w-full h-full preserve-3d" viewbox="0 0 400 100">
+<path d="M0,80 Q50,70 80,40 T150,50 T220,20 T300,60 T400,10" fill="none" stroke="white" stroke-linecap="round" stroke-width="4"></path>
+</svg>
+</div>
+</section>
+<!-- Mini Metric Cards Row -->
+<section class="grid grid-cols-3 gap-3">
+<div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm text-center">
+<p class="text-[10px] uppercase tracking-wider text-outline mb-1 font-bold">Ahorro mes</p>
+<p class="text-primary font-bold text-sm">$6.4M</p>
+<p class="text-[9px] text-stone-400">COP</p>
+</div>
+<div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm text-center">
+<p class="text-[10px] uppercase tracking-wider text-outline mb-1 font-bold">CO₂ mes</p>
+<p class="text-on-surface font-bold text-sm">12.1 ton</p>
+<p class="text-[9px] text-stone-400">🌱 Evitado</p>
+</div>
+<div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm text-center">
+<p class="text-[10px] uppercase tracking-wider text-outline mb-1 font-bold">Uptime</p>
+<p class="text-on-surface font-bold text-sm">99.8%</p>
+<p class="text-[9px] text-stone-400">✓ Óptimo</p>
+</div>
+</section>
+<!-- Cumplimiento Contractual -->
+<section class="bg-surface-container-low rounded-xl p-6">
+<div class="flex justify-between items-start mb-4">
+<h3 class="text-lg font-bold tracking-tight">Cumplimiento contractual</h3>
+<span class="text-xs font-bold text-outline uppercase tracking-widest">Abril 2026</span>
+</div>
+<div class="mb-6">
+<div class="flex justify-between items-end mb-2">
+<p class="text-xs font-semibold text-primary">Vas por buen camino</p>
+<p class="text-lg font-bold">98%</p>
+</div>
+<div class="h-3 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 98%"></div>
+</div>
+<p class="text-[11px] text-outline mt-2 italic text-center">Proyección de mes: 54,320 kWh</p>
+</div>
+<div class="space-y-4 pt-4 border-t border-outline-variant/20">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">bolt</span>
+<span class="text-xs font-medium">Energía</span>
+</div>
+<p class="text-xs font-semibold">41,200 / <span class="text-outline">42k kWh</span></p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">payments</span>
+<span class="text-xs font-medium">Ahorro</span>
+</div>
+<p class="text-xs font-semibold text-primary">$24.8M / <span class="text-outline">$25.2M</span></p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">timer</span>
+<span class="text-xs font-medium">Uptime</span>
+</div>
+<p class="text-xs font-semibold">99.8% / <span class="text-outline">98% SLA</span> ✓</p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">eco</span>
+<span class="text-xs font-medium">CO₂</span>
+</div>
+<p class="text-xs font-semibold">19.8 / <span class="text-outline">19.2 ton</span> ✓</p>
+</div>
+</div>
+</section>
+<!-- Generación últimos 7 días -->
+<section class="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-sm font-bold text-outline">Generación últimos 7 días</h3>
+<p class="text-2xl font-black">2,341 <span class="text-sm font-normal">kWh</span></p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">bar_chart</span>
+</div>
+<div class="flex justify-between items-end h-32 gap-2">
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary/20 rounded-t-lg h-[40%]"></div>
+<span class="text-[10px] font-medium text-outline">Lun</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary/20 rounded-t-lg h-[55%]"></div>
+<span class="text-[10px] font-medium text-outline">Mar</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary/20 rounded-t-lg h-[45%]"></div>
+<span class="text-[10px] font-medium text-outline">Mie</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary/20 rounded-t-lg h-[70%]"></div>
+<span class="text-[10px] font-medium text-outline">Jue</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary/20 rounded-t-lg h-[65%]"></div>
+<span class="text-[10px] font-medium text-outline">Vie</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary/20 rounded-t-lg h-[30%]"></div>
+<span class="text-[10px] font-medium text-outline">Sab</span>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary rounded-t-lg h-[85%] relative">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-on-surface text-surface text-[9px] px-1.5 py-0.5 rounded font-bold">Hoy</div>
+</div>
+<span class="text-[10px] font-bold text-primary">Dom</span>
+</div>
+</div>
+</section>
+<!-- Tus 14 Dispositivos -->
+<section class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex items-center justify-between">
+<div>
+<h3 class="text-sm font-bold text-outline mb-2">Tus 14 dispositivos</h3>
+<div class="flex flex-wrap gap-2">
+<span class="bg-[#eff6ea] text-primary px-3 py-1 rounded-full text-[10px] font-bold">🟢 13 Online</span>
+<span class="bg-secondary-container/20 text-secondary px-3 py-1 rounded-full text-[10px] font-bold">🟡 1 Warning</span>
+</div>
+</div>
+<a class="text-primary font-bold text-xs hover:underline flex items-center" href="#">
+                Ver todos <span class="material-symbols-outlined text-sm ml-1">arrow_forward</span>
+</a>
+</section>
+<!-- Comparativa (Yellow Accent) -->
+<section class="bg-secondary-container rounded-xl p-6 relative overflow-hidden">
+<div class="absolute top-[-10px] right-[-10px] opacity-10">
+<span class="material-symbols-outlined text-8xl" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+</div>
+<div class="flex items-center gap-4 relative z-10">
+<div class="bg-white/40 p-3 rounded-full">
+<span class="material-symbols-outlined text-on-secondary-container text-2xl">workspace_premium</span>
+</div>
+<p class="text-sm font-bold leading-tight text-on-secondary-container">
+                    Estás en el top 15% de nuestros clientes en eficiencia energética este mes 🏆
+                </p>
+</div>
+</section>
+<!-- Asistente SunHub -->
+<section class="bg-surface-container-high rounded-xl p-6 border-2 border-white/50">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary">auto_awesome</span>
+<h3 class="font-bold">Asistente SunHub ✨</h3>
+</div>
+<p class="text-xs text-outline mb-4">Pregúntame cualquier cosa sobre tu planta</p>
+<div class="relative mb-4">
+<input class="w-full bg-surface-container-lowest border-none rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-primary/30 placeholder:text-stone-400" placeholder="¿Cuánto he ahorrado este año?" type="text"/>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm">send</span>
+</button>
+</div>
+<div class="flex flex-wrap gap-2">
+<button class="bg-white px-3 py-2 rounded-lg text-[10px] font-semibold shadow-sm hover:bg-stone-50">Ver mi factura de ahorro</button>
+<button class="bg-white px-3 py-2 rounded-lg text-[10px] font-semibold shadow-sm hover:bg-stone-50">Reporte mensual</button>
+<button class="bg-white px-3 py-2 rounded-lg text-[10px] font-semibold shadow-sm hover:bg-stone-50">Hablar con un técnico</button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl rounded-t-xl shadow-[0px_-12px_32px_rgba(23,29,22,0.06)]">
+<a class="flex flex-col items-center justify-center bg-[#eff6ea] dark:bg-stone-800 text-[#16A34A] dark:text-[#22C55E] rounded-[20px] px-5 py-2 active:scale-90 duration-200 ease-out transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-[11px] font-medium font-label mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 px-5 py-2 hover:bg-[#f4fcf0] dark:hover:bg-stone-800 transition-colors active:scale-90 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">bolt</span>
+<span class="text-[11px] font-medium font-label mt-1">Energía</span>
+</a>
+<a class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 px-5 py-2 hover:bg-[#f4fcf0] dark:hover:bg-stone-800 transition-colors active:scale-90 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-[11px] font-medium font-label mt-1">Reportes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 px-5 py-2 hover:bg-[#f4fcf0] dark:hover:bg-stone-800 transition-colors active:scale-90 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">support_agent</span>
+<span class="text-[11px] font-medium font-label mt-1">Soporte</span>
+</a>
+<a class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 px-5 py-2 hover:bg-[#f4fcf0] dark:hover:bg-stone-800 transition-colors active:scale-90 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[11px] font-medium font-label mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>

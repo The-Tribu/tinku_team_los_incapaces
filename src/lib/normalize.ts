@@ -58,11 +58,13 @@ export type GrowattPlantData = {
 
 export type GrowattPlantListItem = {
   plant_id: number;
-  plant_name?: string;
+  name?: string;
   country?: string;
   city?: string;
-  latitude_f?: number | null;
-  longitude_f?: number | null;
+  // Growatt devuelve lat/lng como strings en el payload real.
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  peak_power?: number | string;
   total_energy?: string;
   // …other fields we don't need yet
 };
@@ -106,18 +108,20 @@ function normalizeGrowattPlantData(
   };
 }
 
-function normalizeGrowattPlantList(resp: any): CanonicalPlant[] {
+function normalizeGrowattPlantList(resp: unknown): CanonicalPlant[] {
   // Accepts the clean shape from the first successful ping:
   // { error_msg, data: { plants: [...] } }
   if (!resp || typeof resp !== "object") return [];
-  const list: GrowattPlantListItem[] = resp?.data?.plants ?? resp?.plants ?? [];
+  const r = resp as { data?: { plants?: GrowattPlantListItem[] }; plants?: GrowattPlantListItem[] };
+  const list: GrowattPlantListItem[] = r.data?.plants ?? r.plants ?? [];
   if (!Array.isArray(list)) return [];
   return list.map((p) => ({
     external_id: String(p.plant_id),
-    name: p.plant_name ?? `Growatt Plant ${p.plant_id}`,
+    name: p.name ?? `Growatt Plant ${p.plant_id}`,
     location: [p.city, p.country].filter(Boolean).join(", ") || undefined,
-    lat: p.latitude_f ?? undefined,
-    lng: p.longitude_f ?? undefined,
+    lat: num(p.latitude),
+    lng: num(p.longitude),
+    capacity_kwp: num(p.peak_power),
   }));
 }
 

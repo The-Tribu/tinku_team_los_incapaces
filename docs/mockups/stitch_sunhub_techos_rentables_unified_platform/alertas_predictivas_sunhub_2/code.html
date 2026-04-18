@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es-CO"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SunHub - Predicciones de IA</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#16A34A",
+                        accent: "#FACC15",
+                        info: "#0EA5E9",
+                        danger: "#DC2626",
+                        ai: "#8B5CF6",
+                        surface: "#F8FAFC"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Plus Jakarta Sans"],
+                        body: ["Inter"],
+                        label: ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .ai-gradient {
+            background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-64 border-r border-slate-200 bg-white flex flex-col py-4 gap-2 z-50">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-2">
+<span class="text-2xl font-black text-green-600 tracking-tighter brand-font">SunHub</span>
+<span class="text-xl">⚡</span>
+</div>
+<p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Torre de Control</p>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="solar_power">solar_power</span>
+                Plantas
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="warning">warning</span>
+                Alarmas
+            </a>
+<!-- Active Tab: Predicciones -->
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-semibold bg-violet-50 text-violet-700 border-r-4 border-violet-600 rounded-l-lg transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="query_stats" style="font-variation-settings: 'FILL' 1;">query_stats</span>
+                Predicciones ✨
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="cloud">cloud</span>
+                Clima
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="assessment">assessment</span>
+                Reportes
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="smart_toy">smart_toy</span>
+                Copilot AI
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="rocket_launch">rocket_launch</span>
+                Onboarding
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-slate-400" data-icon="settings">settings</span>
+                Configuración
+            </a>
+</nav>
+<div class="px-4 mt-auto pt-4 border-t border-slate-100">
+<div class="flex items-center gap-3 p-2 bg-slate-50 rounded-xl">
+<img alt="Robert Triana" class="w-10 h-10 rounded-lg object-cover" data-alt="professional headshot of a middle-aged hispanic man in a business casual shirt with a clean office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBB4XRot2G1ETJTbIOnuIvXr-ZbJuNOT8svYIWMV5l4g47-4SQ9E92WMzbI42BCkdaKLebmyi1m2YzZH5VKTdg69f7YJvy3xNQwyYfb8KcDpx7O1Cr8BZzBpAF120IajPQdx4WGLGv9jyfFOOUROpfaz5ke-IS_KW-x3wercwN8Z9Zd8qX4qZ9CE5aMJFT6E7AWI0URuaWoMRl3IfzltQEwchlpd9Mpzefm1R88I0tY5jOOap_L25JJO-QCOjo-XGtm4NRDjKhknkk"/>
+<div class="min-w-0">
+<p class="text-sm font-bold text-slate-900 truncate">Robert Triana</p>
+<p class="text-[10px] text-slate-500 font-medium truncate uppercase">Ops Manager</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex flex-col h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="h-16 px-6 bg-white border-b border-slate-200 flex items-center justify-between z-40">
+<div class="flex items-center gap-4">
+<nav class="flex items-center text-xs font-medium text-slate-400 gap-2">
+<span>SunHub</span>
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+<span class="text-violet-600 font-semibold">Predicciones ✨</span>
+</nav>
+<div class="h-6 w-px bg-slate-200 mx-2"></div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-full border border-slate-200 hover:bg-slate-200 transition-colors">Todas las marcas</button>
+<button class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors">Próximos 7 días</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined text-slate-500 hover:text-violet-600 cursor-pointer" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+</div>
+<span class="material-symbols-outlined text-slate-500 hover:text-slate-700 cursor-pointer" data-icon="help_outline">help_outline</span>
+<div class="flex items-center gap-2 ml-2">
+<span class="text-sm font-medium text-slate-700">Robert T.</span>
+<span class="material-symbols-outlined text-slate-400" data-icon="account_circle">account_circle</span>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+<!-- Page Header Section -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-3">
+<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Alertas predictivas</h1>
+<span class="px-2 py-1 bg-violet-100 text-violet-700 text-[10px] font-bold rounded uppercase tracking-wider">AI v2.3 Engine</span>
+</div>
+<p class="text-slate-500 text-sm">
+                    IA identificó <span class="text-violet-600 font-bold">18 dispositivos</span> con riesgo de falla en los próximos 7 días · modelo v2.3 entrenado con 2.4M lecturas
+                </p>
+</div>
+<!-- KPI Row -->
+<div class="grid grid-cols-5 gap-4">
+<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">🔮 Predicciones activas</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-slate-900">18</span>
+<span class="text-[10px] font-bold text-violet-600">+4 vs ayer</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Precisión modelo 30d</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-slate-900">92.4%</span>
+<span class="material-symbols-outlined text-green-500 text-sm" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fallos evitados (mes)</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-green-600">11</span>
+<span class="text-[10px] font-bold text-green-600">↑ 12%</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ahorro estimado</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-black text-slate-900">$8.7M</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">COP</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Anticipación promedio</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-slate-900">3.2</span>
+<span class="text-[10px] font-bold text-slate-500">DÍAS</span>
+</div>
+</div>
+</div>
+<!-- Data Visuals Row -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Heatmap (2/3) -->
+<div class="col-span-8 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<h3 class="font-bold text-slate-800 text-sm">Mapa de calor de riesgo por dispositivo - 7 días</h3>
+<div class="flex items-center gap-3 text-[10px] font-bold text-slate-400">
+<div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-100"></span> 0-30% Bajo</div>
+<div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span> 30-70% Medio</div>
+<div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> 70-100% Alto</div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-[11px]">
+<thead>
+<tr class="text-slate-400 uppercase tracking-wider">
+<th class="text-left font-bold py-2 px-1">Dispositivo</th>
+<th class="py-2 px-1">D+1</th>
+<th class="py-2 px-1">D+2</th>
+<th class="py-2 px-1">D+3</th>
+<th class="py-2 px-1">D+4</th>
+<th class="py-2 px-1">D+5</th>
+<th class="py-2 px-1">D+6</th>
+<th class="py-2 px-1">D+7</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<tr>
+<td class="font-bold py-2 px-1 text-slate-700">HYML-MIC-011</td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-400/30 flex items-center justify-center font-bold text-amber-700">42%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-500 flex items-center justify-center font-bold text-white">68%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-500 flex items-center justify-center font-bold text-white">89%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-600 flex items-center justify-center font-bold text-white">96%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-700 flex items-center justify-center font-bold text-white">99%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-800 flex items-center justify-center font-bold text-white">--</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-800 flex items-center justify-center font-bold text-white">--</div></td>
+</tr>
+<tr>
+<td class="font-bold py-2 px-1 text-slate-700">SRNE-INV-003</td>
+<td class="p-1"><div class="h-6 w-full rounded bg-green-100 flex items-center justify-center font-bold text-green-700">12%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-green-100 flex items-center justify-center font-bold text-green-700">18%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-400/30 flex items-center justify-center font-bold text-amber-700">35%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-400 flex items-center justify-center font-bold text-white">52%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-500 flex items-center justify-center font-bold text-white">64%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-500 flex items-center justify-center font-bold text-white">78%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-red-600 flex items-center justify-center font-bold text-white">82%</div></td>
+</tr>
+<tr>
+<td class="font-bold py-2 px-1 text-slate-700">GRT-4821</td>
+<td class="p-1"><div class="h-6 w-full rounded bg-green-100 flex items-center justify-center font-bold text-green-700">08%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-green-100 flex items-center justify-center font-bold text-green-700">11%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-green-100 flex items-center justify-center font-bold text-green-700">14%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-green-200 flex items-center justify-center font-bold text-green-800">22%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-400/30 flex items-center justify-center font-bold text-amber-700">31%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-400 flex items-center justify-center font-bold text-white">45%</div></td>
+<td class="p-1"><div class="h-6 w-full rounded bg-amber-500 flex items-center justify-center font-bold text-white">58%</div></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Brand Risk Chart (1/3) -->
+<div class="col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+<h3 class="font-bold text-slate-800 text-sm">Riesgo por marca</h3>
+<div class="space-y-4">
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-semibold">
+<span class="text-slate-700">Hoymiles (8 pred.)</span>
+<span class="text-red-600">72%</span>
+</div>
+<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-red-500 rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-semibold">
+<span class="text-slate-700">SRNE (3 pred.)</span>
+<span class="text-amber-500">65%</span>
+</div>
+<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-amber-500 rounded-full" style="width: 65%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-semibold">
+<span class="text-slate-700">Growatt (5 pred.)</span>
+<span class="text-amber-500">58%</span>
+</div>
+<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-amber-400 rounded-full" style="width: 58%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-semibold">
+<span class="text-slate-700">DeyeCloud (2 pred.)</span>
+<span class="text-yellow-600">41%</span>
+</div>
+<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-yellow-400 rounded-full" style="width: 41%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-semibold text-slate-400">
+<span class="text-slate-700">Huawei (0 pred.)</span>
+<span class="text-green-600">28%</span>
+</div>
+<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 rounded-full" style="width: 28%"></div>
+</div>
+</div>
+</div>
+<div class="mt-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+<p class="text-[11px] text-red-700 font-medium leading-tight">
+<span class="mr-1">🤖</span> <strong>Observación AI:</strong> Lote Hoymiles 2023-Q4 muestra degradación anómala por fatiga térmica.
+                        </p>
+</div>
+</div>
+</div>
+<!-- Table and Panel Row -->
+<div class="grid grid-cols-12 gap-6 items-start">
+<!-- Main Table (2/3 or adjusted) -->
+<div class="col-span-8 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="p-4 border-b border-slate-100 flex items-center justify-between">
+<h3 class="font-bold text-slate-800 text-sm">Predicciones priorizadas</h3>
+<div class="flex items-center gap-2">
+<button class="p-1.5 hover:bg-slate-50 rounded-lg"><span class="material-symbols-outlined text-slate-400" data-icon="filter_list">filter_list</span></button>
+<button class="p-1.5 hover:bg-slate-50 rounded-lg"><span class="material-symbols-outlined text-slate-400" data-icon="download">download</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-[11px] text-left">
+<thead class="bg-slate-50/50 text-slate-400 uppercase tracking-wider font-bold">
+<tr>
+<th class="px-4 py-3">Riesgo</th>
+<th class="px-4 py-3">Dispositivo</th>
+<th class="px-4 py-3">Cliente</th>
+<th class="px-4 py-3">Marca</th>
+<th class="px-4 py-3">Tipo predicho</th>
+<th class="px-4 py-3 text-center">Prob.</th>
+<th class="px-4 py-3 text-right">Días</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-violet-50/30 cursor-pointer transition-colors bg-violet-50/50 border-l-4 border-l-violet-500">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">🔴 ALTA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">HYML-MIC-011</td>
+<td class="px-4 py-3 text-slate-500">Conj. Residencial El Olmo</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">Hoymiles</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Sobrecalentamiento MOSFET</td>
+<td class="px-4 py-3 text-center font-bold text-red-600">92%</td>
+<td class="px-4 py-3 text-right font-bold">2.1d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">🔴 ALTA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">HYML-MIC-014</td>
+<td class="px-4 py-3 text-slate-500">Bodega DistriMed</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">Hoymiles</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Falla Aislamiento DC</td>
+<td class="px-4 py-3 text-center font-bold text-red-600">88%</td>
+<td class="px-4 py-3 text-right font-bold">2.4d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">🟡 MEDIA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">SRNE-INV-003</td>
+<td class="px-4 py-3 text-slate-500">Eco-Hotel Guatavita</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">SRNE</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Degradación Capacitor</td>
+<td class="px-4 py-3 text-center font-bold text-amber-600">65%</td>
+<td class="px-4 py-3 text-right font-bold">4.8d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">🟡 MEDIA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">GRT-4821</td>
+<td class="px-4 py-3 text-slate-500">P.S. Chia Industrial</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">Growatt</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Inconsistencia MPPT</td>
+<td class="px-4 py-3 text-center font-bold text-amber-600">58%</td>
+<td class="px-4 py-3 text-right font-bold">5.1d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">🟡 MEDIA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">DCLD-INV-007</td>
+<td class="px-4 py-3 text-slate-500">Edificio Onyx</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">DeyeCloud</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Pérdida Sincronización</td>
+<td class="px-4 py-3 text-center font-bold text-amber-600">41%</td>
+<td class="px-4 py-3 text-right font-bold">6.2d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">🟢 BAJA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">GRT-2210</td>
+<td class="px-4 py-3 text-slate-500">Finca La Esperanza</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">Growatt</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Obstrucción Ventilador</td>
+<td class="px-4 py-3 text-center font-bold text-green-600">22%</td>
+<td class="px-4 py-3 text-right font-bold">8.5d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">🟢 BAJA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">HYML-MIC-022</td>
+<td class="px-4 py-3 text-slate-500">Conj. Residencial El Olmo</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">Hoymiles</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Deriva Térmica</td>
+<td class="px-4 py-3 text-center font-bold text-green-600">19%</td>
+<td class="px-4 py-3 text-right font-bold">11d</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">🟢 BAJA</span></td>
+<td class="px-4 py-3 font-bold text-slate-700">SRNE-INV-009</td>
+<td class="px-4 py-3 text-slate-500">Centro Medico San Luis</td>
+<td class="px-4 py-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold">SRNE</span></td>
+<td class="px-4 py-3 font-medium text-slate-700">Fluctuación Voltaje</td>
+<td class="px-4 py-3 text-center font-bold text-green-600">14%</td>
+<td class="px-4 py-3 text-right font-bold">14d</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Selected Device Panel (1/3) -->
+<div class="col-span-4 bg-white rounded-xl border border-slate-200 shadow-lg p-5 flex flex-col gap-6 sticky top-6">
+<div class="flex justify-between items-start">
+<div>
+<h2 class="text-lg font-extrabold text-slate-900 leading-tight">HYML-MIC-011</h2>
+<p class="text-xs font-semibold text-slate-500 uppercase">Microinversor · El Olmo</p>
+</div>
+<span class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-black rounded uppercase">Prioridad Crítica</span>
+</div>
+<!-- Mini Chart Simulation -->
+<div class="bg-slate-50 p-4 rounded-xl space-y-3">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] font-bold text-slate-400 uppercase">Potencia 30d vs Forecast</span>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span class="w-2 h-0.5 bg-slate-400"></span> Real</span>
+<span class="flex items-center gap-1 text-[9px] font-bold text-violet-600"><span class="w-2 h-0.5 bg-violet-500"></span> IA</span>
+</div>
+</div>
+<div class="h-24 relative flex items-end gap-1">
+<!-- Simplified sparkline simulation -->
+<div class="flex-1 bg-slate-200 h-2/3 rounded-sm opacity-50"></div>
+<div class="flex-1 bg-slate-200 h-3/4 rounded-sm opacity-50"></div>
+<div class="flex-1 bg-slate-200 h-2/3 rounded-sm opacity-50"></div>
+<div class="flex-1 bg-slate-200 h-3/5 rounded-sm opacity-50"></div>
+<div class="flex-1 bg-violet-400 h-1/2 rounded-sm"></div>
+<div class="flex-1 bg-violet-500 h-1/3 rounded-sm"></div>
+<div class="flex-1 bg-violet-600 h-1/5 rounded-sm"></div>
+</div>
+<p class="text-[10px] text-red-600 font-bold text-center">Falla estimada en <span class="text-sm">2.1</span> días</p>
+</div>
+<div class="space-y-4">
+<h4 class="text-xs font-black text-slate-800 uppercase tracking-wider">Factores detectados por IA</h4>
+<div class="grid grid-cols-2 gap-2">
+<div class="p-3 bg-slate-50 rounded-lg flex flex-col">
+<span class="text-[9px] font-bold text-slate-400 uppercase">Degradación</span>
+<span class="text-sm font-bold text-red-600">-0.41 σ</span>
+</div>
+<div class="p-3 bg-slate-50 rounded-lg flex flex-col">
+<span class="text-[9px] font-bold text-slate-400 uppercase">Voltaje</span>
+<span class="text-sm font-bold text-amber-600">-0.28 σ</span>
+</div>
+<div class="p-3 bg-slate-50 rounded-lg flex flex-col">
+<span class="text-[9px] font-bold text-slate-400 uppercase">Temperatura</span>
+<span class="text-sm font-bold text-red-600">+0.19 σ</span>
+</div>
+<div class="p-3 bg-slate-50 rounded-lg flex flex-col">
+<span class="text-[9px] font-bold text-slate-400 uppercase">Edad</span>
+<span class="text-sm font-bold text-slate-600">+0.12 σ</span>
+</div>
+</div>
+</div>
+<div class="space-y-2 mt-2">
+<button class="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="construction">construction</span>
+                            Crear OT preventiva
+                        </button>
+<button class="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="mail">mail</span>
+                            Notificar cliente
+                        </button>
+<button class="w-full py-3 bg-white text-slate-400 hover:text-red-500 font-semibold text-xs transition-all flex items-center justify-center gap-2">
+                            Descartar predicción
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="h-10 px-6 border-t border-slate-200 bg-white flex items-center justify-between text-[10px] font-medium text-slate-400">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> 🤖 Modelo v2.3 activo</span>
+<span>•</span>
+<span>Recalibrado hace 6h</span>
+<span>•</span>
+<span>Próxima ejecución en 54 min</span>
+</div>
+<div class="flex items-center gap-1">
+<span>SunHub Control Tower</span>
+<span>© 2024 Techos Rentables</span>
+</div>
+</footer>
+</main>
+</body></html>

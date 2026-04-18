@@ -19,7 +19,9 @@
     "mw:explore": "tsx scripts/explore-middleware.ts",
     "plants:sync": "tsx scripts/sync-real-plants.ts",
     "user:create": "tsx scripts/create-user.ts",
-    "data:reset": "tsx scripts/reset-data.ts"
+    "data:reset": "tsx scripts/reset-data.ts",
+    "baselines": "tsx scripts/update-baselines.ts",
+    "seed:robert": "tsx scripts/seed-robert-plant.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

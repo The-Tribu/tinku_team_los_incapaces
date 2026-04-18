@@ -24,17 +24,26 @@ import { prisma } from "../src/lib/prisma";
 import { mw } from "../src/lib/middleware";
 import { providers } from "../src/lib/normalize";
 
+// TTL largo (15 min) para inventario — plantas cambian rara vez y recortamos
+// llamadas repetidas cuando el cron hace plants-sync cada hora.
+const PLANTS_TTL_SEC = 15 * 60;
+
 async function fetchDeye() {
-  const res = await mw<{ stationList?: unknown[] }>("/deye/v1.0/station/list", {
-    method: "POST",
-    body: JSON.stringify({ page: 1, size: 50 }),
-  });
+  const res = await mw<{ stationList?: unknown[] }>(
+    "/deye/v1.0/station/list",
+    { method: "POST", body: JSON.stringify({ page: 1, size: 50 }) },
+    { cacheTtlSec: PLANTS_TTL_SEC },
+  );
   return providers.deye.plantsList(res);
 }
 
 async function fetchGrowatt() {
   try {
-    const res = await mw<unknown>("/growatt/v1/plant/list", { method: "GET" });
+    const res = await mw<unknown>(
+      "/growatt/v1/plant/list",
+      { method: "GET" },
+      { cacheTtlSec: PLANTS_TTL_SEC },
+    );
     const list = providers.growatt.plantsList(res);
     if (list.length > 0) return list;
   } catch (err) {
@@ -44,6 +53,8 @@ async function fetchGrowatt() {
   try {
     const data = await mw<{ data?: { peak_power_actual?: number } }>(
       "/growatt/v1/plant/data?plant_id=1356131",
+      undefined,
+      { cacheTtlSec: PLANTS_TTL_SEC },
     );
     return [
       {

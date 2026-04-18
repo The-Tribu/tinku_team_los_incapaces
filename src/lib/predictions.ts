@@ -1,11 +1,17 @@
 /**
  * Predictive maintenance.
- * Heuristic ML-lite: analyzes PR trend, voltage stability and uptime over
- * the last 14 days to predict failure probability. MiniMax is then called
- * for a root-cause narrative and an action recommendation.
+ * Heurística ML-lite sobre los últimos 14 días + MiniMax para narrativa de
+ * causa raíz y recomendación de acción.
+ *
+ * v2: soporta `triggerKind` (scheduled | alarm | anomaly) y RAG-lite — el
+ * prompt del LLM recibe outcomes pasados del mismo device (confirmed/dismissed
+ * con notas del humano) y remediaciones que funcionaron, para que las nuevas
+ * sugerencias citen historia real en vez de generar desde cero.
  */
 import { prisma } from "./prisma";
 import { chat } from "./minimax";
+
+export type TriggerKind = "scheduled" | "alarm" | "anomaly";
 
 export type PredictionInput = {
   plantId: string;
@@ -29,6 +35,10 @@ export type PredictionOutput = {
   rootCause: string;
   suggestedAction: string;
   modelVersion: string;
+  triggerKind: TriggerKind;
+  sourceAlarmId?: string | null;
+  signals: string[];
+  predictionId?: string;
 };
 
 function slope(series: number[]): number {
@@ -90,11 +100,71 @@ export function heuristicScore(input: PredictionInput): {
   return { probability, daysToEvent, predictedType, signals };
 }
 
+/** RAG lite: recupera outcomes previos del device para citar en el prompt. */
+async function fetchMemory(deviceId: string) {
+  const outcomes = await prisma.predictionOutcome.findMany({
+    where: { prediction: { deviceId } },
+    orderBy: { decidedAt: "desc" },
+    take: 5,
+    include: {
+      prediction: {
+        select: { predictedType: true, probability: true, rootCause: true, suggestedAction: true },
+      },
+    },
+  });
+  const remediations = await prisma.remediation.findMany({
+    where: {
+      deviceId,
+      status: "executed",
+      verifiedOutcome: "success",
+    },
+    orderBy: { executedAt: "desc" },
+    take: 5,
+    select: { commandType: true, reason: true, executedAt: true },
+  });
+  return { outcomes, remediations };
+}
+
 export async function generateRootCause(
   input: PredictionInput,
   heuristic: ReturnType<typeof heuristicScore>,
+  triggerKind: TriggerKind,
 ): Promise<Pick<PredictionOutput, "rootCause" | "suggestedAction">> {
+  const memory = await fetchMemory(input.deviceId);
+
+  const memoryBlock = (() => {
+    const parts: string[] = [];
+    if (memory.outcomes.length > 0) {
+      parts.push("Historial de predicciones cerradas (más reciente primero):");
+      for (const o of memory.outcomes) {
+        const status = o.status === "confirmed" ? "✓ SÍ ocurrió" : o.status === "dismissed" ? "✗ NO ocurrió" : o.status;
+        const note = o.notes ? ` — nota: ${o.notes.slice(0, 120)}` : "";
+        parts.push(
+          `- ${status} · tipo ${o.prediction.predictedType} @ ${Math.round(Number(o.prediction.probability) * 100)}% · acción previa: ${o.prediction.suggestedAction ?? "s/d"}${note}`,
+        );
+      }
+    }
+    if (memory.remediations.length > 0) {
+      parts.push("Remediaciones que ya funcionaron en este inversor:");
+      for (const r of memory.remediations) {
+        parts.push(`- ${r.commandType} (${r.reason}) · ${r.executedAt?.toISOString().slice(0, 10)}`);
+      }
+    }
+    return parts.join("\n");
+  })();
+
+  const triggerHint =
+    triggerKind === "alarm"
+      ? "Esta predicción se disparó por una alarma recién emitida — prioriza causas que expliquen el fenómeno observado y no hipótesis exploratorias."
+      : triggerKind === "anomaly"
+        ? "Esta predicción se disparó por una anomalía estadística (ruptura de baseline), aún no hay alarma del proveedor — enfoca causas silenciosas tempranas."
+        : "Esta es una corrida programada, no hay evento disparador — da tu mejor lectura del trend.";
+
   const system = `Eres un ingeniero senior de operaciones solares de Techos Rentables. Diagnosticas fallas en plantas solares antes de que ocurran.
+${triggerHint}
+
+${memoryBlock ? `Tienes memoria de casos anteriores en este mismo dispositivo:\n${memoryBlock}\n\nSi la señal actual se parece a un caso previo, cítalo explícitamente.` : "No tienes memoria previa de este dispositivo — diagnóstico desde cero."}
+
 Responde en dos líneas, exactamente con este formato:
 CAUSA: <causa raíz técnica en 1-2 frases, en español>
 ACCION: <acción concreta, empezando con verbo>
@@ -122,12 +192,11 @@ Predicción heurística: ${heuristic.predictedType} · probabilidad ${(heuristic
   return { rootCause: causa || raw.slice(0, 200), suggestedAction: accion || "Programar inspección preventiva" };
 }
 
-export async function gatherPredictionInput(plantId: string): Promise<PredictionInput[]> {
+export async function gatherPredictionInput(plantId: string, deviceId?: string): Promise<PredictionInput[]> {
   const plant = await prisma.plant.findUniqueOrThrow({ where: { id: plantId } });
-  const device = await prisma.device.findFirst({
-    where: { plantId },
-    orderBy: { installedAt: "asc" },
-  });
+  const device = deviceId
+    ? await prisma.device.findUnique({ where: { id: deviceId } })
+    : await prisma.device.findFirst({ where: { plantId }, orderBy: { installedAt: "asc" } });
   if (!device) return [];
 
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
@@ -173,41 +242,56 @@ export async function gatherPredictionInput(plantId: string): Promise<Prediction
   ];
 }
 
-export async function predictForPlant(plantId: string): Promise<PredictionOutput[]> {
-  const inputs = await gatherPredictionInput(plantId);
+export type PredictForPlantOpts = {
+  triggerKind?: TriggerKind;
+  sourceAlarmId?: string | null;
+  deviceId?: string; // limitar a un device específico (para triggers)
+};
+
+export async function predictForPlant(
+  plantId: string,
+  opts: PredictForPlantOpts = {},
+): Promise<PredictionOutput[]> {
+  const triggerKind = opts.triggerKind ?? "scheduled";
+  const inputs = await gatherPredictionInput(plantId, opts.deviceId);
   const results: PredictionOutput[] = [];
   for (const input of inputs) {
     const heuristic = heuristicScore(input);
     let rootCauseBlock: Pick<PredictionOutput, "rootCause" | "suggestedAction">;
     try {
-      rootCauseBlock = await generateRootCause(input, heuristic);
+      rootCauseBlock = await generateRootCause(input, heuristic, triggerKind);
     } catch (err) {
       rootCauseBlock = {
         rootCause: `(IA no disponible: ${(err as Error).message.slice(0, 80)}) Señales: ${heuristic.signals.join("; ") || "sin anomalías"}`,
         suggestedAction: heuristic.probability > 0.5 ? "Programar inspección preventiva" : "Mantener monitoreo activo",
       };
     }
-    const prediction: PredictionOutput = {
+    const row = await prisma.prediction.create({
+      data: {
+        deviceId: input.deviceId,
+        predictedType: heuristic.predictedType,
+        probability: heuristic.probability,
+        daysToEvent: heuristic.daysToEvent,
+        confidence: 0.7,
+        rootCause: rootCauseBlock.rootCause,
+        suggestedAction: rootCauseBlock.suggestedAction,
+        modelVersion: "heuristic-v2+rag+minimax",
+        triggerKind,
+        sourceAlarmId: opts.sourceAlarmId ?? null,
+      },
+    });
+    results.push({
       ...rootCauseBlock,
       predictedType: heuristic.predictedType,
       probability: heuristic.probability,
       daysToEvent: heuristic.daysToEvent,
       confidence: 0.7,
-      modelVersion: "heuristic-v1+minimax",
-    };
-    await prisma.prediction.create({
-      data: {
-        deviceId: input.deviceId,
-        predictedType: prediction.predictedType,
-        probability: prediction.probability,
-        daysToEvent: prediction.daysToEvent,
-        confidence: prediction.confidence,
-        rootCause: prediction.rootCause,
-        suggestedAction: prediction.suggestedAction,
-        modelVersion: prediction.modelVersion,
-      },
+      modelVersion: "heuristic-v2+rag+minimax",
+      triggerKind,
+      sourceAlarmId: opts.sourceAlarmId ?? null,
+      signals: heuristic.signals,
+      predictionId: row.id,
     });
-    results.push(prediction);
   }
   return results;
 }

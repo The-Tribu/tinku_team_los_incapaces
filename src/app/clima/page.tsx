@@ -12,7 +12,7 @@ export default async function ClimaPage() {
   return (
     <AppShell
       title="Clima + generación esperada"
-      subtitle="Pronóstico 5 días con Open-Meteo · planifica mantenimientos donde el lucro cesante es menor"
+      subtitle="Pronóstico hacia adelante con Open-Meteo · recomienda mantenimiento el día de menor lucro cesante"
     >
       <WeatherConsole
         plants={plants.map((p) => ({

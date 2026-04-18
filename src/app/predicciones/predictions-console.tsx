@@ -1,27 +1,24 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  AlertOctagon,
+  AlarmClock,
   AlertTriangle,
-  BellPlus,
-  Check,
+  Bell,
+  Brain,
   CheckCircle2,
-  ChevronsUpDown,
   Clock,
-  Copy,
-  FileDown,
-  Lightbulb,
   Loader2,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  Target,
-  Wrench,
-  X,
-  Zap,
+  Play,
+  RefreshCw,
+  ThumbsDown,
+  ThumbsUp,
+  TrendingUp,
+  Wand2,
 } from "lucide-react";
 
 type Plant = { id: string; code: string; name: string; client: string };
+type Remediation = { id: string; commandType: string; status: string; executionMode: string };
 type Row = {
   id: string;
   predictedType: string;
@@ -31,573 +28,638 @@ type Row = {
   rootCause: string;
   suggestedAction: string;
   generatedAt: string;
+  modelVersion: string;
+  triggerKind: "scheduled" | "alarm" | "anomaly";
+  sourceAlarm?: { id: string; severity: string; type: string; message: string } | null;
+  plantId: string;
   plantName: string;
   plantCode: string;
   client: string;
+  outcome: { status: string; notes: string | null; decidedAt: string } | null;
+  remediations: Remediation[];
 };
 
-type Filter = "all" | "critical" | "warning" | "low";
+type Stats = {
+  total: number;
+  confirmed: number;
+  auto_matched: number;
+  dismissed: number;
+  accuracy: number | null;
+  openPredictions: number;
+};
+
+type FilterKind = "all" | "open" | "scheduled" | "alarm" | "anomaly" | "high-risk";
+
+const TRIGGER_META: Record<Row["triggerKind"], { label: string; icon: React.ReactNode; badge: string }> = {
+  scheduled: {
+    label: "Programada",
+    icon: <Clock className="h-3 w-3" />,
+    badge: "bg-slate-100 text-slate-700 ring-slate-200",
+  },
+  alarm: {
+    label: "Disparada por alarma",
+    icon: <AlarmClock className="h-3 w-3" />,
+    badge: "bg-rose-100 text-rose-700 ring-rose-200",
+  },
+  anomaly: {
+    label: "Anomalía (z-score)",
+    icon: <TrendingUp className="h-3 w-3" />,
+    badge: "bg-amber-100 text-amber-800 ring-amber-200",
+  },
+};
+
+function typeTone(type: string) {
+  switch (type) {
+    case "failure":
+      return "bg-rose-50 text-rose-700 ring-rose-200";
+    case "degradation":
+      return "bg-amber-50 text-amber-800 ring-amber-200";
+    default:
+      return "bg-sky-50 text-sky-700 ring-sky-200";
+  }
+}
+
+function probTone(p: number) {
+  if (p >= 0.7) return "bg-rose-500";
+  if (p >= 0.4) return "bg-amber-400";
+  return "bg-sky-500";
+}
 
 export function PredictionsConsole({
+  canRun,
   plants,
   initialRows,
-  canRun,
 }: {
+  canRun: boolean;
   plants: Plant[];
   initialRows: Row[];
-  canRun: boolean;
 }) {
-  const [plantId, setPlantId] = useState(plants[0]?.id ?? "");
-  const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState<number | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<FilterKind>("all");
+  const [search, setSearch] = useState("");
+  const [selectedPlant, setSelectedPlant] = useState<string>(plants[0]?.id ?? "");
+  const [showMethod, setShowMethod] = useState(false);
 
-  const selectedPlant = plants.find((p) => p.id === plantId) ?? null;
+  const loadStats = async () => {
+    try {
+      const r = await fetch("/api/outcomes/stats");
+      const j = await r.json();
+      setStats(j);
+    } catch {
+      /* non-fatal */
+    }
+  };
 
-  async function run() {
-    if (!plantId || !canRun) return;
-    setBusy(true);
+  const loadRows = async () => {
+    try {
+      const r = await fetch("/api/predictions");
+      const j = await r.json();
+      if (j.rows) {
+        setRows(
+          j.rows.map((x: Row & { plant: { id: string; name: string; code: string; client: { name: string } } }) => ({
+            ...x,
+            plantId: x.plant?.id ?? x.plantId,
+            plantName: x.plant?.name ?? x.plantName,
+            plantCode: x.plant?.code ?? x.plantCode,
+            client: x.plant?.client?.name ?? x.client,
+          })),
+        );
+      }
+    } catch {
+      /* non-fatal */
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const runPrediction = async () => {
+    if (!selectedPlant) return;
+    setLoading(true);
     setError(null);
-    const t0 = performance.now();
     try {
       const res = await fetch("/api/predictions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plantId }),
+        body: JSON.stringify({ plantId: selectedPlant, triggerKind: "scheduled" }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Error");
-      setElapsed(Math.round(performance.now() - t0));
-      const plant = plants.find((p) => p.id === plantId)!;
-      const newRows: Row[] = json.predictions.map((p: Row, idx: number) => ({
-        ...p,
-        id: `new-${Date.now()}-${idx}`,
-        generatedAt: new Date().toISOString(),
-        plantName: plant.name,
-        plantCode: plant.code,
-        client: plant.client,
-      }));
-      setRows([...newRows, ...rows]);
-    } catch (err) {
-      setError((err as Error).message);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Error al predecir");
+      await Promise.all([loadRows(), loadStats()]);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
-  }
+  };
 
-  const counts = useMemo(() => {
-    let critical = 0, warning = 0, low = 0;
-    for (const r of rows) {
-      const pct = Math.round(r.probability * 100);
-      if (pct >= 70) critical++;
-      else if (pct >= 40) warning++;
-      else low++;
+  const submitFeedback = async (predictionId: string, status: "confirmed" | "dismissed") => {
+    try {
+      const r = await fetch(`/api/outcomes/${predictionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? "error");
+      await Promise.all([loadRows(), loadStats()]);
+    } catch (e) {
+      setError((e as Error).message);
     }
-    return { all: rows.length, critical, warning, low };
-  }, [rows]);
+  };
 
-  const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const pct = Math.round(r.probability * 100);
-      if (filter === "critical" && pct < 70) return false;
-      if (filter === "warning" && (pct < 40 || pct >= 70)) return false;
-      if (filter === "low" && pct >= 40) return false;
-      if (!q) return true;
+      if (filter === "open" && r.outcome) return false;
+      if (filter === "scheduled" && r.triggerKind !== "scheduled") return false;
+      if (filter === "alarm" && r.triggerKind !== "alarm") return false;
+      if (filter === "anomaly" && r.triggerKind !== "anomaly") return false;
+      if (filter === "high-risk" && r.probability < 0.6) return false;
+      if (!s) return true;
       return (
-        r.plantName.toLowerCase().includes(q) ||
-        r.plantCode.toLowerCase().includes(q) ||
-        r.client.toLowerCase().includes(q) ||
-        r.rootCause.toLowerCase().includes(q) ||
-        r.suggestedAction.toLowerCase().includes(q)
+        r.plantName.toLowerCase().includes(s) ||
+        r.plantCode.toLowerCase().includes(s) ||
+        r.client.toLowerCase().includes(s) ||
+        r.predictedType.toLowerCase().includes(s) ||
+        r.rootCause.toLowerCase().includes(s)
       );
     });
-  }, [rows, filter, query]);
+  }, [rows, filter, search]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      {/* ── Panel izquierdo: ejecutar predicción ─────────────────────── */}
-      <div className="lg:col-span-1 space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="font-heading text-base font-semibold">Ejecutar predicción</h2>
-              <p className="text-[11px] text-slate-500">MiniMax + heurística · 14 días</p>
-            </div>
+    <div className="space-y-6">
+      {/* Tiles de accuracy */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase text-sky-700">Predicciones abiertas</div>
+            <Bell className="h-4 w-4 text-sky-700" />
           </div>
+          <div className="mt-2 font-heading text-3xl font-bold text-slate-900">
+            {stats?.openPredictions ?? rows.filter((r) => !r.outcome).length}
+          </div>
+          <div className="text-xs text-slate-500">Últimos 30 días sin outcome</div>
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase text-emerald-700">Accuracy</div>
+            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+          </div>
+          <div className="mt-2 font-heading text-3xl font-bold text-slate-900">
+            {stats?.accuracy != null ? `${(stats.accuracy * 100).toFixed(0)}%` : "—"}
+          </div>
+          <div className="text-xs text-slate-500">
+            {stats ? `${stats.confirmed + stats.auto_matched}/${stats.total} confirmadas` : "necesita historial"}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase text-amber-800">Auto-match</div>
+            <AlarmClock className="h-4 w-4 text-amber-700" />
+          </div>
+          <div className="mt-2 font-heading text-3xl font-bold text-slate-900">{stats?.auto_matched ?? 0}</div>
+          <div className="text-xs text-slate-500">Cerradas automáticamente por alarma</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase text-slate-600">Falsos positivos</div>
+            <ThumbsDown className="h-4 w-4 text-slate-500" />
+          </div>
+          <div className="mt-2 font-heading text-3xl font-bold text-slate-900">{stats?.dismissed ?? 0}</div>
+          <div className="text-xs text-slate-500">Descartadas por el operador</div>
+        </div>
+      </div>
 
-          <label className="mt-5 block text-xs font-medium uppercase text-slate-500">
-            Planta a analizar
-          </label>
-          <PlantCombobox
-            plants={plants}
-            value={plantId}
-            onChange={setPlantId}
-            disabled={busy || !canRun}
-          />
-
-          {selectedPlant ? (
-            <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
-              <span className="font-medium text-slate-700">{selectedPlant.code}</span>
-              {" · "}
-              <span>{selectedPlant.client}</span>
-            </div>
-          ) : null}
-
-          <button
-            onClick={() => void run()}
-            disabled={busy || !plantId || !canRun}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-violet-700 hover:to-violet-800 disabled:opacity-50"
+      {/* Controles */}
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <label className="block text-xs font-medium uppercase text-slate-500">Planta</label>
+          <select
+            value={selectedPlant}
+            onChange={(e) => setSelectedPlant(e.target.value)}
+            className="mt-1 w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
           >
-            {busy ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Analizando señales…
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Predecir fallas
-              </>
-            )}
+            {plants.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} · {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {canRun ? (
+          <button
+            type="button"
+            onClick={runPrediction}
+            disabled={loading || !selectedPlant}
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            Correr predicción
           </button>
-
-          {!canRun ? (
-            <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-500">
-              <ShieldCheck className="h-3 w-3" />
-              Tu rol no tiene permiso para ejecutar predicciones.
-            </p>
-          ) : null}
-
-          {elapsed != null ? (
-            <div className="mt-3 flex items-center gap-1.5 rounded-md bg-violet-50 px-2.5 py-1.5 text-[11px] text-violet-700">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Análisis completado en {(elapsed / 1000).toFixed(1)}s
-            </div>
-          ) : null}
-          {error ? (
-            <div className="mt-3 flex items-start gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
-              <AlertOctagon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {error}
-            </div>
-          ) : null}
+        ) : null}
+        <button
+          type="button"
+          onClick={() => {
+            void loadRows();
+            void loadStats();
+          }}
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          <RefreshCw className="h-4 w-4" /> Refrescar
+        </button>
+        <div className="ml-auto flex flex-wrap items-end gap-3">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar planta, causa…"
+            className="h-10 w-64 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          />
+          <button
+            type="button"
+            onClick={() => setShowMethod((v) => !v)}
+            className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50"
+          >
+            <Brain className="h-3 w-3" /> {showMethod ? "Ocultar método" : "¿Cómo funciona?"}
+          </button>
         </div>
-
-        <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50 p-5">
-          <div className="flex items-center gap-2 text-violet-800">
-            <Lightbulb className="h-4 w-4" />
-            <span className="font-heading text-sm font-semibold">¿Cómo funciona?</span>
-          </div>
-          <ul className="mt-3 space-y-1.5 text-[11px] text-slate-700">
-            <li className="flex items-center gap-2">
-              <Zap className="h-3 w-3 text-violet-500" /> Slope PR últimos 14 días
-            </li>
-            <li className="flex items-center gap-2">
-              <Clock className="h-3 w-3 text-violet-500" /> Uptime promedio &lt; 90%
-            </li>
-            <li className="flex items-center gap-2">
-              <AlertTriangle className="h-3 w-3 text-violet-500" /> σ voltaje &gt; 15V
-            </li>
-            <li className="flex items-center gap-2">
-              <Target className="h-3 w-3 text-violet-500" /> Temperatura &gt; 55°C
-            </li>
-            <li className="flex items-center gap-2">
-              <Sparkles className="h-3 w-3 text-violet-500" /> MiniMax → causa raíz + acción
-            </li>
-          </ul>
-        </div>
+        {error ? <span className="w-full text-xs text-rose-600">{error}</span> : null}
       </div>
 
-      {/* ── Panel derecho: predicciones ──────────────────────────────── */}
-      <div className="lg:col-span-2 space-y-4">
-        {/* KPIs de riesgo */}
-        <div className="grid grid-cols-4 gap-3">
-          <RiskTile
-            active={filter === "all"}
-            onClick={() => setFilter("all")}
-            label="Total"
-            count={counts.all}
-            tone="slate"
-          />
-          <RiskTile
-            active={filter === "critical"}
-            onClick={() => setFilter("critical")}
-            label="Crítico ≥70%"
-            count={counts.critical}
-            tone="red"
-          />
-          <RiskTile
-            active={filter === "warning"}
-            onClick={() => setFilter("warning")}
-            label="Aviso 40-69%"
-            count={counts.warning}
-            tone="amber"
-          />
-          <RiskTile
-            active={filter === "low"}
-            onClick={() => setFilter("low")}
-            label="Bajo <40%"
-            count={counts.low}
-            tone="emerald"
-          />
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="font-heading text-base font-semibold">Predicciones recientes</h2>
-            <div className="relative w-56">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar en predicciones…"
-                className="w-full rounded-lg border border-slate-200 py-1.5 pl-8 pr-3 text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              />
-            </div>
-          </div>
-
-          {filteredRows.length === 0 ? (
-            <EmptyState hasRows={rows.length > 0} />
-          ) : (
-            <div className="space-y-3">
-              {filteredRows.map((r) => (
-                <PredictionCard key={r.id} row={r} canAct={canRun} />
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Filter tiles */}
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            { id: "all", label: "Todas", count: rows.length },
+            { id: "open", label: "Abiertas (sin outcome)", count: rows.filter((r) => !r.outcome).length },
+            { id: "high-risk", label: "Alto riesgo (≥60%)", count: rows.filter((r) => r.probability >= 0.6).length },
+            { id: "alarm", label: "Por alarma", count: rows.filter((r) => r.triggerKind === "alarm").length },
+            { id: "anomaly", label: "Por anomalía", count: rows.filter((r) => r.triggerKind === "anomaly").length },
+            { id: "scheduled", label: "Programadas", count: rows.filter((r) => r.triggerKind === "scheduled").length },
+          ] as Array<{ id: FilterKind; label: string; count: number }>
+        ).map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition " +
+              (filter === f.id
+                ? "border-sky-400 bg-sky-50 text-sky-800"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+            }
+          >
+            {f.label}
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+              {f.count}
+            </span>
+          </button>
+        ))}
       </div>
-    </div>
-  );
-}
 
-// ─── Combobox con buscador ─────────────────────────────────────────────
-function PlantCombobox({
-  plants,
-  value,
-  onChange,
-  disabled,
-}: {
-  plants: Plant[];
-  value: string;
-  onChange: (id: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  const selected = plants.find((p) => p.id === value);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return plants;
-    return plants.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.code.toLowerCase().includes(q) ||
-        p.client.toLowerCase().includes(q),
-    );
-  }, [plants, query]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative mt-1">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:border-slate-300 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-100 disabled:opacity-50"
-      >
-        <span className={selected ? "text-slate-900" : "text-slate-400"}>
-          {selected ? (
-            <>
-              <span className="font-medium">{selected.name}</span>
-              <span className="ml-1 text-slate-500">· {selected.code}</span>
-            </>
-          ) : (
-            "Selecciona una planta…"
-          )}
-        </span>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400" />
-      </button>
-
-      {open ? (
-        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-          <div className="border-b border-slate-100 p-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por nombre, código o cliente…"
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              />
-            </div>
+      {showMethod ? (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-5 text-sm text-slate-700">
+          <div className="mb-2 flex items-center gap-2 font-semibold text-sky-800">
+            <Brain className="h-4 w-4" /> Cómo piensa el modelo
           </div>
-          <div className="max-h-72 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="px-4 py-6 text-center text-xs text-slate-500">
-                Sin resultados para "{query}"
-              </div>
-            ) : (
-              filtered.map((p) => {
-                const isSelected = p.id === value;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(p.id);
-                      setOpen(false);
-                      setQuery("");
-                    }}
-                    className={`flex w-full items-start gap-2 px-3 py-2 text-left text-xs transition hover:bg-violet-50 ${
-                      isSelected ? "bg-violet-50/60" : ""
-                    }`}
-                  >
-                    <span className="mt-0.5 w-4 text-violet-600">
-                      {isSelected ? <Check className="h-3.5 w-3.5" /> : null}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium text-slate-900">{p.name}</div>
-                      <div className="truncate text-[11px] text-slate-500">
-                        {p.code} · {p.client}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-          <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">
-            {filtered.length} de {plants.length} plantas
-          </div>
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>
+              <b>Heurística</b> evalúa 5 señales sobre los últimos 14 días: pendiente de PR, uptime, σ voltaje,
+              temperatura y alarmas recientes. Cada señal suma al score (0–1).
+            </li>
+            <li>
+              Se clasifica en <code>failure</code>, <code>degradation</code> o <code>low_gen</code> según la señal
+              dominante, y se proyecta la ventana (3/7/14/30 días).
+            </li>
+            <li>
+              <b>RAG lite:</b> antes de llamar al LLM, buscamos los últimos 5 outcomes del mismo inversor y las
+              remediaciones que funcionaron. Eso viaja dentro del prompt a MiniMax como contexto.
+            </li>
+            <li>
+              <b>MiniMax</b> devuelve CAUSA + ACCION en 2 líneas, citando historial cuando aplica.
+            </li>
+            <li>
+              <b>Outcome loop:</b> cuando nace una alarma, emparejamos predicciones abiertas → accuracy se actualiza
+              sola (auto-matched). El operador puede marcar manualmente confirmed/dismissed.
+            </li>
+            <li>
+              <b>Triggers:</b> <i>scheduled</i> (manual/cron), <i>alarm</i> (nace al crearse una alarma, adjunta
+              sourceAlarmId), <i>anomaly</i> (ruptura de baseline z-score en ingest, antes de la alarma del
+              proveedor).
+            </li>
+          </ol>
         </div>
       ) : null}
+
+      {/* Lista de predicciones */}
+      <div className="space-y-3">
+        {filtered.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+            No hay predicciones para este filtro.
+          </div>
+        ) : null}
+        {filtered.map((r) => {
+          const meta = TRIGGER_META[r.triggerKind];
+          return (
+            <div
+              key={r.id}
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={"rounded-full px-2 py-0.5 text-xs font-semibold ring-1 " + typeTone(r.predictedType)}>
+                      {r.predictedType}
+                    </span>
+                    <span className={"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 " + meta.badge}>
+                      {meta.icon}
+                      {meta.label}
+                    </span>
+                    {r.sourceAlarm ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700 ring-1 ring-rose-100">
+                        <AlertTriangle className="h-3 w-3" />
+                        {r.sourceAlarm.type}: {r.sourceAlarm.message.slice(0, 60)}
+                      </span>
+                    ) : null}
+                    {r.outcome ? (
+                      <span
+                        className={
+                          "rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 " +
+                          (r.outcome.status === "confirmed" || r.outcome.status === "auto_matched"
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-slate-100 text-slate-600 ring-slate-200")
+                        }
+                      >
+                        {r.outcome.status === "auto_matched"
+                          ? "✓ auto-matched"
+                          : r.outcome.status === "confirmed"
+                            ? "✓ confirmada"
+                            : "✗ descartada"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-slate-900">
+                    {r.plantName} <span className="text-xs font-normal text-slate-500">({r.plantCode}) · {r.client}</span>
+                  </div>
+                  <div className="mt-3 text-sm text-slate-700">
+                    <b className="text-slate-900">Causa:</b> {r.rootCause || "—"}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-700">
+                    <b className="text-slate-900">Acción sugerida:</b> {r.suggestedAction || "—"}
+                  </div>
+                  {r.remediations.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {r.remediations.map((rem) => (
+                        <Link
+                          key={rem.id}
+                          href={`/predicciones#rem-${rem.id}`}
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700 hover:bg-slate-100"
+                        >
+                          {rem.executionMode === "real" ? "REAL" : "MOCK"} · {rem.commandType} · {rem.status}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-slate-50 ring-2 ring-slate-100">
+                    <div className="text-[10px] uppercase text-slate-400">prob</div>
+                    <div className="font-heading text-base font-bold text-slate-900">
+                      {Math.round(r.probability * 100)}%
+                    </div>
+                  </div>
+                  <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={"h-full rounded-full " + probTone(r.probability)}
+                      style={{ width: `${Math.round(r.probability * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {r.daysToEvent != null ? `~${r.daysToEvent}d` : "s/d"} · {new Date(r.generatedAt).toLocaleString("es-CO")}
+                  </div>
+                  {!r.outcome && canRun ? (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => submitFeedback(r.id, "confirmed")}
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800 hover:bg-emerald-100"
+                        title="Confirmar — ya ocurrió"
+                      >
+                        <ThumbsUp className="h-3 w-3" /> Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => submitFeedback(r.id, "dismissed")}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50"
+                        title="Descartar — falso positivo"
+                      >
+                        <ThumbsDown className="h-3 w-3" /> Descartar
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <RemediationsPanel canRun={canRun} />
     </div>
   );
 }
 
-// ─── Risk tile ─────────────────────────────────────────────────────────
-const TILE_TONES: Record<string, { border: string; bg: string; text: string; dot: string }> = {
-  slate: { border: "border-slate-200", bg: "bg-slate-50", text: "text-slate-700", dot: "bg-slate-400" },
-  red: { border: "border-red-200", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
-  amber: { border: "border-amber-200", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
-  emerald: { border: "border-emerald-200", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-};
+function RemediationsPanel({ canRun }: { canRun: boolean }) {
+  type Rem = {
+    id: string;
+    plantId: string;
+    plant: { id: string; name: string; code: string } | null;
+    deviceExternalId: string | null;
+    commandType: string;
+    reason: string;
+    status: string;
+    executionMode: string;
+    proposedBy: string;
+    proposedAt: string;
+    executedAt: string | null;
+    verifiedOutcome: string | null;
+    providerOrderId: string | null;
+    alarm: { id: string; type: string; severity: string; message: string } | null;
+    executionResult: Record<string, unknown> | null;
+  };
 
-function RiskTile({
-  label,
-  count,
-  tone,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  tone: keyof typeof TILE_TONES;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const t = TILE_TONES[tone];
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-xl border bg-white px-3 py-2.5 text-left transition hover:shadow-sm ${
-        active ? `${t.border} ${t.bg}` : "border-slate-200"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <span className={`text-[11px] font-medium uppercase tracking-wide ${active ? t.text : "text-slate-500"}`}>
-          {label}
-        </span>
-        <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-      </div>
-      <div className={`mt-1 font-heading text-2xl font-bold tabular-nums ${active ? t.text : "text-slate-800"}`}>
-        {count}
-      </div>
-    </button>
-  );
-}
+  const [rows, setRows] = useState<Rem[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-// ─── Empty state ───────────────────────────────────────────────────────
-function EmptyState({ hasRows }: { hasRows: boolean }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-        <Sparkles className="h-5 w-5" />
-      </div>
-      <p className="mt-3 text-sm font-medium text-slate-700">
-        {hasRows ? "Sin predicciones en este filtro" : "Aún no hay predicciones"}
-      </p>
-      <p className="mt-1 max-w-xs text-xs text-slate-500">
-        {hasRows
-          ? "Ajusta los filtros o ejecuta una nueva predicción."
-          : "Selecciona una planta y ejecuta tu primera predicción con MiniMax."}
-      </p>
-    </div>
-  );
-}
-
-// ─── Prediction card ───────────────────────────────────────────────────
-function PredictionCard({ row, canAct }: { row: Row; canAct: boolean }) {
-  const pct = Math.round(row.probability * 100);
-  const isCritical = pct >= 70;
-  const isWarning = pct >= 40 && pct < 70;
-  const tone = isCritical
-    ? { border: "border-red-200", stripe: "bg-red-500", badge: "bg-red-100 text-red-800 border-red-200", icon: <AlertOctagon className="h-4 w-4 text-red-500" /> }
-    : isWarning
-      ? { border: "border-amber-200", stripe: "bg-amber-500", badge: "bg-amber-100 text-amber-800 border-amber-200", icon: <AlertTriangle className="h-4 w-4 text-amber-500" /> }
-      : { border: "border-emerald-200", stripe: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" /> };
-
-  const [done, setDone] = useState<string | null>(null);
-
-  function markDone(key: string) {
-    setDone(key);
-    setTimeout(() => setDone(null), 1500);
-  }
-
-  async function copyAction() {
+  const load = async () => {
     try {
-      await navigator.clipboard.writeText(
-        `[${row.plantCode}] ${row.plantName}\nCausa raíz: ${row.rootCause}\nAcción: ${row.suggestedAction}`,
-      );
-      markDone("copy");
+      const r = await fetch("/api/remediations");
+      const j = await r.json();
+      setRows(j.rows);
     } catch {
-      /* ignore */
+      /* silent */
     }
-  }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const action = async (id: string, act: "approve" | "reject" | "execute" | "verify") => {
+    setBusy(`${id}:${act}`);
+    setError(null);
+    try {
+      const r = await fetch(`/api/remediations/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: act, reason: act === "reject" ? "Rechazada desde UI" : undefined }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? "error");
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const statusTone = (s: string) => {
+    if (s === "proposed") return "bg-amber-50 text-amber-800 ring-amber-200";
+    if (s === "approved" || s === "executing") return "bg-sky-50 text-sky-800 ring-sky-200";
+    if (s === "executed") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    if (s === "failed" || s === "rejected") return "bg-rose-50 text-rose-700 ring-rose-200";
+    return "bg-slate-100 text-slate-700 ring-slate-200";
+  };
 
   return (
-    <article
-      className={`group relative overflow-hidden rounded-xl border bg-white transition hover:shadow-md ${tone.border}`}
-    >
-      <div className={`absolute inset-y-0 left-0 w-1 ${tone.stripe}`} />
-      <div className="p-4 pl-5">
-        <header className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              {tone.icon}
-              <h3 className="font-heading text-sm font-semibold text-slate-900">{row.plantName}</h3>
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
-              <span className="font-mono">{row.plantCode}</span>
-              <span>·</span>
-              <span>{row.client}</span>
-              <span>·</span>
-              <time>{new Date(row.generatedAt).toLocaleString("es-CO")}</time>
-            </div>
-          </div>
-          <div className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}>
-            {pct}% {row.predictedType}
-          </div>
-        </header>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
-            <Clock className="h-3 w-3 text-slate-400" />
-            En {row.daysToEvent ?? "—"} días
-          </span>
-          {row.confidence ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
-              <ShieldCheck className="h-3 w-3 text-slate-400" />
-              Confianza {Math.round(row.confidence * 100)}%
-            </span>
-          ) : null}
+    <div id="remediations" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-heading text-base font-semibold">Remediaciones sugeridas</h2>
+          <p className="text-xs text-slate-500">
+            Cada alarma en plantas con autonomía ≥ <i>approval</i> genera una propuesta. El toggle <b>mock/real</b>
+            vive en <Link href="/configuracion" className="text-sky-700 underline">Configuración</Link>.
+          </p>
         </div>
-
-        {row.rootCause ? (
-          <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
-              <Sparkles className="h-3 w-3" />
-              Causa raíz · MiniMax
-            </div>
-            <p className="mt-1 text-xs leading-relaxed text-slate-800">{row.rootCause}</p>
-          </div>
-        ) : null}
-
-        {row.suggestedAction ? (
-          <div className="mt-2 flex items-start gap-2 rounded-lg bg-emerald-50/60 p-3">
-            <Wrench className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-            <div className="text-xs">
-              <span className="font-semibold text-emerald-800">Próxima acción: </span>
-              <span className="text-slate-800">{row.suggestedAction}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {canAct ? (
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
-            <ActionButton onClick={copyAction} done={done === "copy"} icon={<Copy className="h-3.5 w-3.5" />}>
-              {done === "copy" ? "Copiado" : "Copiar"}
-            </ActionButton>
-            <ActionButton
-              onClick={() => markDone("alarm")}
-              done={done === "alarm"}
-              icon={<BellPlus className="h-3.5 w-3.5" />}
-            >
-              {done === "alarm" ? "Creada" : "Crear alarma"}
-            </ActionButton>
-            <ActionButton
-              onClick={() => markDone("report")}
-              done={done === "report"}
-              icon={<FileDown className="h-3.5 w-3.5" />}
-            >
-              Exportar
-            </ActionButton>
-            <ActionButton
-              onClick={() => markDone("ack")}
-              done={done === "ack"}
-              icon={<X className="h-3.5 w-3.5" />}
-              tone="ghost"
-            >
-              Descartar
-            </ActionButton>
-          </div>
-        ) : null}
+        <button
+          onClick={() => void load()}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50"
+        >
+          <RefreshCw className="h-3 w-3" /> Refrescar
+        </button>
       </div>
-    </article>
-  );
-}
-
-function ActionButton({
-  onClick,
-  icon,
-  children,
-  done,
-  tone = "solid",
-}: {
-  onClick: () => void;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  done?: boolean;
-  tone?: "solid" | "ghost";
-}) {
-  const base = "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition";
-  const styles =
-    tone === "ghost"
-      ? "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-      : "border border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700";
-  return (
-    <button onClick={onClick} className={`${base} ${styles} ${done ? "border-emerald-300 bg-emerald-50 text-emerald-700" : ""}`}>
-      {done ? <Check className="h-3.5 w-3.5" /> : icon}
-      {children}
-    </button>
+      {error ? <div className="mt-2 text-xs text-rose-600">{error}</div> : null}
+      <div className="mt-4 overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Planta</th>
+              <th className="px-3 py-2">Comando</th>
+              <th className="px-3 py-2">Origen</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Modo</th>
+              <th className="px-3 py-2">Propuesta</th>
+              <th className="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {(rows ?? []).map((r) => (
+              <tr key={r.id} id={`rem-${r.id}`} className="align-top hover:bg-slate-50">
+                <td className="px-3 py-2">
+                  <div className="font-medium text-slate-900">{r.plant?.name ?? "—"}</div>
+                  <div className="text-[11px] text-slate-500">{r.plant?.code ?? ""}</div>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="font-mono text-xs text-slate-800">{r.commandType}</div>
+                  <div className="text-[11px] text-slate-500">{r.reason}</div>
+                </td>
+                <td className="px-3 py-2 text-xs text-slate-600">
+                  {r.alarm ? `alarma ${r.alarm.severity}` : r.proposedBy === "ai" ? "AI" : "manual"}
+                </td>
+                <td className="px-3 py-2">
+                  <span className={"rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 " + statusTone(r.status)}>
+                    {r.status}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span
+                    className={
+                      "rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 " +
+                      (r.executionMode === "real"
+                        ? "bg-rose-50 text-rose-700 ring-rose-200"
+                        : "bg-slate-50 text-slate-600 ring-slate-200")
+                    }
+                  >
+                    {r.executionMode.toUpperCase()}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-[11px] text-slate-600">
+                  {new Date(r.proposedAt).toLocaleString("es-CO")}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {canRun ? (
+                    <div className="flex justify-end gap-1">
+                      {r.status === "proposed" ? (
+                        <>
+                          <button
+                            onClick={() => action(r.id, "approve")}
+                            disabled={busy === `${r.id}:approve`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            onClick={() => action(r.id, "reject")}
+                            disabled={busy === `${r.id}:reject`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            Rechazar
+                          </button>
+                        </>
+                      ) : null}
+                      {r.status === "approved" ? (
+                        <button
+                          onClick={() => action(r.id, "execute")}
+                          disabled={busy === `${r.id}:execute`}
+                          className="inline-flex items-center gap-1 rounded-lg bg-sky-600 px-2 py-1 text-[11px] text-white hover:bg-sky-700 disabled:opacity-60"
+                        >
+                          <Play className="h-3 w-3" /> Ejecutar
+                        </button>
+                      ) : null}
+                      {r.status === "executed" && !r.verifiedOutcome ? (
+                        <button
+                          onClick={() => action(r.id, "verify")}
+                          disabled={busy === `${r.id}:verify`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          Verificar
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {r.verifiedOutcome ? (
+                    <div className="text-[11px] text-emerald-700">✓ {r.verifiedOutcome}</div>
+                  ) : null}
+                  {r.providerOrderId ? (
+                    <div className="text-[10px] text-slate-500">order: {r.providerOrderId}</div>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+            {(rows ?? []).length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-6 text-center text-xs text-slate-500">
+                  Sin remediaciones. Cuando nazca una alarma en una planta con autonomía ≥ approval, aparecerá aquí.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

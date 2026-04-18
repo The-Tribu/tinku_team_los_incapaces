@@ -8,6 +8,7 @@ import {
   Gauge,
   LayoutDashboard,
   Plus,
+  Settings,
   Sparkles,
   Sun,
   Timer,
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
   { href: "/clima", label: "Clima", icon: <CloudSun className="h-4 w-4" /> },
   { href: "/costo-beneficio", label: "Proveedores", icon: <Wallet className="h-4 w-4" /> },
   { href: "/onboarding", label: "Onboarding", icon: <Plus className="h-4 w-4" />, roles: ["admin", "ops"] },
+  { href: "/configuracion", label: "Configuración", icon: <Settings className="h-4 w-4" />, roles: ["admin", "ops"] },
   { href: "/usuarios", label: "Usuarios", icon: <Users className="h-4 w-4" />, roles: ["admin"] },
 ];
 

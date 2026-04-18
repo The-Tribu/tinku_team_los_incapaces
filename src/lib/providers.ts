@@ -49,8 +49,8 @@ export function plantsListEndpoint(slug: ProviderSlug): EndpointSpec {
 
 /**
  * Endpoint de alarmas por proveedor. Deye requiere ventana en segundos
- * (<=30 días), Huawei en ms (<=7 días). Growatt no tiene endpoint dedicado
- * de alarma a nivel planta — se usa `device/inverter/alarm` por device id.
+ * (<=30 días), Huawei en ms (<=7 días). Growatt no expone un endpoint de
+ * alarmas en la OpenAPI pública — las anomalías se derivan de lecturas.
  */
 export function alarmsEndpoint(
   slug: ProviderSlug,
@@ -84,19 +84,12 @@ export function alarmsEndpoint(
         },
       };
     case "growatt":
-      // Growatt: alarmas son por inverter_id, no por plant. El worker las
-      // busca cuando hay un device.externalId de tipo inverter disponible.
+      // Growatt no tiene endpoint público de alarmas. Se detectan vía
+      // lecturas (z-score + baselines) o se reciben como mock/manual.
       return null;
     default: {
       const _exhaustive: never = slug;
       throw new Error(`Unknown provider ${_exhaustive}`);
     }
   }
-}
-
-export function growattInverterAlarmEndpoint(inverterSn: string): EndpointSpec {
-  return {
-    method: "GET",
-    path: `/growatt/v1/device/inverter/alarm?inverter_id=${encodeURIComponent(inverterSn)}`,
-  };
 }

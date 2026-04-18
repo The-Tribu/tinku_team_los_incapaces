@@ -30,94 +30,63 @@ const toDate = (v: unknown): Date | null => {
 };
 
 // ─── Deye ──────────────────────────────────────────────────────
-// POST /deye/v1.0/station/alertList
-//   Respuesta esperada (capturada en probes): { success, list: [{ id, message,
-//   level, alertTime, repairTime, deviceSn, ... }] } o { data: { list: [...] } }.
+// POST /deye/v1.0/station/alertList  → { code, stationAlertItems: [...] }
+// POST /deye/v1.0/device/alertList   → { code, alertList: [...] }
 //
-//   `level` → 1/2/3 según doc Deye (1=critical, 2=warning, 3=info).
+// Schema oficial (hackathon-provider-hub-docs / deye / 02-station.md §7 y 03-device.md §4):
+//   { alertId, alertCode, alertLevel, alertMsg, deviceSn?, startTimestamp,
+//     endTimestamp, status }
+//   - alertLevel: STRING — "CRITICAL" | "ERROR" | "WARN" | "WARNING" | "INFO" ...
+//   - startTimestamp / endTimestamp: segundos epoch.
+//   - status: "CLEARED" | "ACTIVE" | ... → si CLEARED la alarma está resuelta.
 
 type DeyeAlarmItem = {
-  id?: number | string;
   alertId?: number | string;
-  deviceSn?: string;
   alertCode?: string;
-  alertName?: string;
-  alertDesc?: string;
-  message?: string;
-  level?: number | string;
-  severity?: number | string;
-  alertTime?: number | string;
-  startTime?: number | string;
-  repairTime?: number | string | null;
-  endTime?: number | string | null;
-  recoveryTime?: number | string | null;
+  alertLevel?: string;
+  alertMsg?: string;
+  deviceSn?: string;
+  startTimestamp?: number | string;
+  endTimestamp?: number | string | null;
+  status?: string;
 };
 
 function deyeSeverity(level: unknown): AlarmSeverity {
-  const n = Number(level);
-  if (n === 1) return "critical";
-  if (n === 2) return "warning";
-  if (n === 3) return "info";
+  const v = String(level ?? "").toUpperCase();
+  if (v === "CRITICAL" || v === "FATAL" || v === "ERROR" || v === "FAULT") return "critical";
+  if (v === "WARN" || v === "WARNING" || v === "MAJOR" || v === "MINOR") return "warning";
+  if (v === "INFO" || v === "NOTICE") return "info";
   return "warning";
 }
 
 export function normalizeDeyeAlarms(resp: unknown): ProviderAlarm[] {
-  const r = resp as { success?: boolean; list?: DeyeAlarmItem[]; data?: { list?: DeyeAlarmItem[] } } | null;
+  const r = resp as {
+    code?: string;
+    stationAlertItems?: DeyeAlarmItem[];
+    alertList?: DeyeAlarmItem[];
+  } | null;
   if (!r) return [];
-  const list = Array.isArray(r.list) ? r.list : r.data?.list;
+  const list = Array.isArray(r.stationAlertItems)
+    ? r.stationAlertItems
+    : Array.isArray(r.alertList)
+      ? r.alertList
+      : null;
   if (!Array.isArray(list)) return [];
   return list.flatMap((a) => {
-    const key = String(a.alertId ?? a.id ?? "");
+    const key = String(a.alertId ?? "");
     if (!key) return [];
-    const started = toDate(a.alertTime ?? a.startTime);
+    const started = toDate(a.startTimestamp);
     if (!started) return [];
+    const end = toDate(a.endTimestamp);
+    const isCleared = String(a.status ?? "").toUpperCase() === "CLEARED";
     return [{
       providerAlarmKey: key,
-      severity: deyeSeverity(a.level ?? a.severity),
-      type: String(a.alertCode ?? a.alertName ?? "deye_alert").slice(0, 60),
-      message: String(a.alertDesc ?? a.alertName ?? a.message ?? "Alarma Deye"),
+      severity: deyeSeverity(a.alertLevel),
+      type: String(a.alertCode ?? "deye_alert").slice(0, 60),
+      message: String(a.alertMsg ?? a.alertCode ?? "Alarma Deye"),
       startedAt: started,
-      resolvedAt: toDate(a.repairTime ?? a.endTime ?? a.recoveryTime) ?? null,
-      raw: a,
-    } satisfies ProviderAlarm];
-  });
-}
-
-// ─── Growatt ───────────────────────────────────────────────────
-// GET /growatt/v1/device/inverter/alarm?inverter_id=...
-//   Envelope: { error_code, error_msg, data: { alarms: [{ alarm_code,
-//   alarm_message, time, ... }] } }.
-
-type GrowattAlarmItem = {
-  alarm_code?: string | number;
-  alarmCode?: string | number;
-  alarm_message?: string;
-  alarmMsg?: string;
-  message?: string;
-  time?: string | number;
-  happen_time?: string | number;
-  alarm_time?: string | number;
-  end_time?: string | number;
-  level?: string | number;
-};
-
-export function normalizeGrowattAlarms(resp: unknown, inverterSn: string): ProviderAlarm[] {
-  const r = resp as { error_code?: number; data?: { alarms?: GrowattAlarmItem[] } | GrowattAlarmItem[] } | null;
-  if (!r || (r.error_code ?? 0) !== 0) return [];
-  const list = Array.isArray(r.data) ? r.data : r.data?.alarms;
-  if (!Array.isArray(list)) return [];
-  return list.flatMap((a) => {
-    const code = String(a.alarm_code ?? a.alarmCode ?? "");
-    const when = toDate(a.alarm_time ?? a.happen_time ?? a.time);
-    if (!code || !when) return [];
-    const msg = String(a.alarm_message ?? a.alarmMsg ?? a.message ?? `Alarma Growatt ${code}`);
-    return [{
-      providerAlarmKey: `${inverterSn}:${code}:${when.getTime()}`,
-      severity: (String(a.level ?? "").toLowerCase() === "critical" ? "critical" : "warning") as AlarmSeverity,
-      type: `growatt_${code}`.slice(0, 60),
-      message: msg,
-      startedAt: when,
-      resolvedAt: toDate(a.end_time) ?? null,
+      // Upstream dice resuelto si status=CLEARED, o si endTimestamp es > startTimestamp.
+      resolvedAt: isCleared || (end && end.getTime() > started.getTime()) ? end : null,
       raw: a,
     } satisfies ProviderAlarm];
   });
@@ -169,13 +138,13 @@ export function normalizeHuaweiAlarms(resp: unknown): ProviderAlarm[] {
 export function normalizeProviderAlarms(
   slug: ProviderSlug,
   resp: unknown,
-  ctx: { inverterSn?: string } = {},
 ): ProviderAlarm[] {
   switch (slug) {
     case "deye":
       return normalizeDeyeAlarms(resp);
     case "growatt":
-      return normalizeGrowattAlarms(resp, ctx.inverterSn ?? "");
+      // Growatt no expone endpoint público de alarmas. Se derivan de lecturas.
+      return [];
     case "huawei":
       return normalizeHuaweiAlarms(resp);
   }
