@@ -1,0 +1,175 @@
+// SunHub · Canonical data model
+// See docs/ESPECIFICACIONES_TECNICAS.md §4 for rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Comercial ─────────────────────────────────────────────────
+model Client {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  contactEmail String?   @map("contact_email")
+  region       String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  plants       Plant[]
+  reports      Report[]
+
+  @@map("clients")
+}
+
+model Plant {
+  id           String    @id @default(uuid()) @db.Uuid
+  clientId     String    @map("client_id") @db.Uuid
+  code         String    @unique
+  name         String
+  location     String?
+  lat          Decimal?  @db.Decimal(10, 6)
+  lng          Decimal?  @db.Decimal(10, 6)
+  capacityKwp  Decimal?  @map("capacity_kwp") @db.Decimal(10, 2)
+  contractType String?   @map("contract_type")
+  contractEnd  DateTime? @map("contract_end") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  devices   Device[]
+  contracts Contract[]
+  reports   Report[]
+
+  @@index([clientId])
+  @@map("plants")
+}
+
+// ── Proveedores e integración ─────────────────────────────────
+model Provider {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique // growatt | huawei | deye | hoymiles | srne | solarman
+  displayName String   @map("display_name")
+  authType    String?  @map("auth_type")
+  pollingMin  Int      @default(5) @map("polling_min")
+  enabled     Boolean  @default(true)
+  devices     Device[]
+
+  @@map("providers")
+}
+
+model Device {
+  id            String    @id @default(uuid()) @db.Uuid
+  plantId       String    @map("plant_id") @db.Uuid
+  providerId    String    @map("provider_id") @db.Uuid
+  externalId    String    @map("external_id")
+  kind          String // inverter | microinverter | battery
+  model         String?
+  installedAt   DateTime? @map("installed_at") @db.Date
+  currentStatus String    @default("offline") @map("current_status") // online|warning|offline|degraded
+  lastSeenAt    DateTime? @map("last_seen_at")
+
+  plant       Plant        @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  provider    Provider     @relation(fields: [providerId], references: [id])
+  readings    Reading[]
+  alarms      Alarm[]
+  predictions Prediction[]
+
+  @@unique([providerId, externalId])
+  @@index([plantId])
+  @@map("devices")
+}
+
+// ── Series de tiempo ──────────────────────────────────────────
+model Reading {
+  id           BigInt   @id @default(autoincrement())
+  deviceId     String   @map("device_id") @db.Uuid
+  ts           DateTime
+  powerAcKw    Decimal? @map("power_ac_kw") @db.Decimal(10, 3)
+  voltageV     Decimal? @map("voltage_v") @db.Decimal(10, 2)
+  currentA     Decimal? @map("current_a") @db.Decimal(10, 2)
+  frequencyHz  Decimal? @map("frequency_hz") @db.Decimal(6, 2)
+  powerFactor  Decimal? @map("power_factor") @db.Decimal(4, 3)
+  temperatureC Decimal? @map("temperature_c") @db.Decimal(5, 2)
+  energyKwh    Decimal? @map("energy_kwh") @db.Decimal(12, 3)
+  raw          Json?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, ts(sort: Desc)])
+  @@map("readings")
+}
+
+// ── Contratos y compromisos ───────────────────────────────────
+model Contract {
+  id                String   @id @default(uuid()) @db.Uuid
+  plantId           String   @map("plant_id") @db.Uuid
+  periodMonth       DateTime @map("period_month") @db.Date
+  targetEnergyKwh   Decimal? @map("target_energy_kwh") @db.Decimal(12, 2)
+  targetSavingsCop  Decimal? @map("target_savings_cop") @db.Decimal(14, 2)
+  targetUptimePct   Decimal? @map("target_uptime_pct") @db.Decimal(5, 2)
+  targetPrPct       Decimal? @map("target_pr_pct") @db.Decimal(5, 2)
+  targetCo2Ton      Decimal? @map("target_co2_ton") @db.Decimal(10, 3)
+  penaltyPerBreach  Decimal? @map("penalty_per_breach") @db.Decimal(14, 2)
+
+  plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@unique([plantId, periodMonth])
+  @@map("contracts")
+}
+
+// ── Alarmas y predicciones ────────────────────────────────────
+model Alarm {
+  id            String    @id @default(uuid()) @db.Uuid
+  deviceId      String    @map("device_id") @db.Uuid
+  severity      String // critical | warning | info
+  type          String // offline | frequency | voltage | low_gen | temperature
+  message       String
+  startedAt     DateTime  @default(now()) @map("started_at")
+  resolvedAt    DateTime? @map("resolved_at")
+  assignee      String?
+  aiSuggestion  String?   @map("ai_suggestion")
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, startedAt(sort: Desc)])
+  @@index([resolvedAt])
+  @@map("alarms")
+}
+
+model Prediction {
+  id              String   @id @default(uuid()) @db.Uuid
+  deviceId        String   @map("device_id") @db.Uuid
+  predictedType   String   @map("predicted_type") // failure | degradation | low_gen
+  probability     Decimal  @db.Decimal(4, 3)
+  daysToEvent     Decimal? @map("days_to_event") @db.Decimal(5, 2)
+  confidence      Decimal? @db.Decimal(4, 3)
+  rootCause       String?  @map("root_cause")
+  suggestedAction String?  @map("suggested_action")
+  modelVersion    String?  @map("model_version")
+  generatedAt     DateTime @default(now()) @map("generated_at")
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, generatedAt(sort: Desc)])
+  @@map("predictions")
+}
+
+// ── Reportes ──────────────────────────────────────────────────
+model Report {
+  id            String   @id @default(uuid()) @db.Uuid
+  clientId      String   @map("client_id") @db.Uuid
+  plantId       String?  @map("plant_id") @db.Uuid
+  period        DateTime @db.Date
+  status        String   @default("draft") // draft | generating | sent
+  pdfUrl        String?  @map("pdf_url")
+  compliancePct Decimal? @map("compliance_pct") @db.Decimal(5, 2)
+  generatedAt   DateTime @default(now()) @map("generated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  plant  Plant? @relation(fields: [plantId], references: [id])
+
+  @@index([clientId, period])
+  @@map("reports")
+}

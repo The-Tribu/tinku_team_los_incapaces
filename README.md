@@ -1,159 +1,164 @@
-[Tinku Hackathon](https://hackathon.thetribu.dev/)
+# SunHub ⚡
 
-# Equipo `Los Incapaces` · TINKU Hackathon 2026
+> Plataforma unificada de operación solar — consolida en un solo sistema las 6 plataformas de monitoreo (Growatt, Huawei, DeyeCloud, Hoymiles, SRNE…) que Techos Rentables opera hoy.
 
-**El Ritual CreAItivo · Tu vIAje comienza aquí**
-
-[Sitio del evento](https://hackathon.thetribu.dev/) · [Definición del problema](./docs/problem/problema.md) · [Guía técnica](./docs/resources/technical_guide.md) · [Rúbrica de evaluación](./docs/resources/rubrica_participantes.md)
+**Equipo Los Incapaces · TINKU Hackathon 2026** · Info del evento → [README-HACKATHON.md](./README-HACKATHON.md)
 
 ---
 
-## ¡Ey, **Los Incapaces**! 👋
+## ¿Qué hace SunHub?
 
-Equipo, este repositorio es el hogar oficial de su proyecto durante **TINKU Hackathon 2026**. Aquí van a versionar el código, documentar las decisiones técnicas y dejar listo el producto para la entrega final.
+- **Unifica** el monitoreo de 200+ plantas solares multi-marca en un único dashboard.
+- **Detecta fallas en <5 min** con un motor de reglas sobre lecturas normalizadas.
+- **Predice fallas 2–7 días** antes con IA (MiniMax).
+- **Genera reportes mensuales automáticos** — de 40 min manuales a 30 seg.
+- **Recomienda proveedor óptimo** por costo/beneficio histórico.
+- **Avisa de clima adverso** con impacto operativo estimado.
+- **Portal cliente** (mobile) para que el cliente final vea su planta en una sola app.
 
-> Recuerden: durante el evento este repositorio es **privado**. Al cerrar la hackathon lo haremos **público bajo licencia MIT**, para que cualquier persona del ecosistema pueda aprender, reutilizar y construir sobre lo que ustedes crearon. Así fortalecemos la comunidad. 🌱
-
-### Integrantes del equipo
-
-En TINKU cada equipo tiene **3 integrantes**. Ustedes son los **participantes** de **Los Incapaces** — el equipo que representan en este reto. Entre los tres pueden repartirse el trabajo, apoyarse cuando apriete y llegar a la demo con algo que los haga sentir orgullosos; **cada aporte cuenta**.
-
-**Participantes:** Robert Sty Triana Cortes, Duban Andres Monsalve Suarez, John Sebastian Nieto Gil
-
-> **Tengan claros los roles internos desde el minuto 1.** No importa cómo los definan —lo que importa es que cada integrante sepa qué aporta y de qué es responsable. Un equipo con roles claros toma decisiones más rápido y llega mejor a la entrega.
+→ Detalles completos en [`docs/ESPECIFICACIONES_TECNICAS.md`](./docs/ESPECIFICACIONES_TECNICAS.md)
 
 ---
 
-## Contexto del evento
+## Stack
 
-**TINKU** es una hackathon de **18 horas** organizada por **The Tribu** y la **Universidad Cooperativa de Colombia**, sede Cartago, en alianza con **Techos Rentables**, **Celsia Internet**, **Cursor**, **MiniMax** y la comunidad local.
-
-El reto de esta edición nace de un problema **real** del ecosistema solar colombiano: cómo unificar la operación de **200+ proyectos solares** con dispositivos de múltiples marcas (Growatt, Huawei, Hoymiles, DeyeCloud, SRNE…) para garantizar el cumplimiento contractual, detectar fallas en menos de 5 minutos y eliminar +130 horas/mes de trabajo manual repetitivo.
-
-> Lean la [definición completa del problema](./docs/problem/problema.md) y el [contexto operacional](./docs/problem/contexto_operacional.md) **antes** de abrir el editor. La frase con la que describan el problema vale más que las próximas 5 horas de código.
-
----
-
-## Patrocinadores
-
-Gracias a quienes hacen posible TINKU 2026:
-
-### Organizan
-
-- [The Tribu](https://thetribu.dev)
-- [Universidad Cooperativa de Colombia](https://www.ucc.edu.co)
-
-### Patrocinador principal
-
-- [Techos Rentables](https://techosrentables.com)
-- [Celsia Internet](https://www.celsiainternet.com/)
-
-### Tecnología
-
-- [Cursor](https://cursor.com)
-- [MiniMax](https://www.minimax.io/)
-
-### Aliados
-
-- [Persano](https://www.instagram.com/persano.co)
-- [Flavors](https://www.instagram.com/coffe_flavors)
-- [La 7 Incluyente](https://www.instagram.com/la7incluyentegf)
-- [Vinola](https://www.instagram.com/vinolabar/)
+- **Frontend:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS · shadcn/ui
+- **Charts & Maps:** Recharts · react-leaflet
+- **Backend:** Next.js API Routes · Node 20
+- **DB / ORM:** PostgreSQL 15 · Prisma
+- **AI / LLM:** MiniMax (MiniMax-Text-01)
+- **Clima:** Open-Meteo (sin API key)
+- **Middleware solar:** `techos.thetribu.dev` (provisto por el hackathon)
+- **Deploy:** Vercel
 
 ---
 
-## Guía para arrancar la hackathon
+## Instalación y ejecución
 
-Aquí está la **línea de meta**, los **principios** y unos pasos sugeridos para las primeras horas. Lo demás —**stack**, **arquitectura**, **cómo se reparten el trabajo** y **qué construyen**— lo deciden ustedes.
+### 1. Pre-requisitos
 
-### Guarden este README antes de codear
+- Node.js 20+
+- Docker (para Postgres local)
+- API key del middleware Tinku (en el kit de bienvenida)
+- API key de MiniMax
 
-Cuando ya hayan **leído** este archivo, guarden una **copia** de su contenido en [`docs/`](./docs/) (por ejemplo `docs/README_equipo.md`).
+### 2. Clonar y configurar
 
-**¿Por qué?** El `README.md` de la **raíz** es lo primero que se ve en GitHub y, en la práctica, lo van a **reutilizar** para lo que más importa durante el evento: cómo instalar y ejecutar **su** solución (comandos, variables de entorno, estructura del código, etc.). Ese archivo solo puede cumplir bien **un rol principal** a la vez. Si lo sustituyen por completo sin haber guardado copia, **pierden en un solo cambio** el texto de bienvenida, la lista de **patrocinadores**, los enlaces al **sitio del hackathon** y los atajos a la documentación del reto. **La copia dentro de `docs/`** mantiene todo eso en el repo, versionado y localizable, aunque el README de la raíz pase a ser la “ficha técnica” del proyecto.
+```bash
+git clone <repo-url>
+cd tinku_team_los_incapaces
+cp .env.example .env.local
+# editar .env.local con las keys reales
+```
 
-### 🏁 Línea de meta
+### 3. Base de datos
 
-**Obligatorio**
+```bash
+docker run --name sunhub-pg \
+  -e POSTGRES_PASSWORD=sunhub \
+  -e POSTGRES_DB=sunhub \
+  -p 5432:5432 -d postgres:15
+```
 
-- ✅ Repositorio con `README.md` y licencia **MIT** (este template ya los incluye).
-- ✅ Producto **listo para correr** con instrucciones claras de instalación y ejecución (aunque sea solo en local).
-- ✅ **Pitch de 5 minutos** preparado.
+Agregar a `.env.local`:
+```
+DATABASE_URL=postgresql://postgres:sunhub@localhost:5432/sunhub
+```
 
-**Opcional (no obligatorio)**
+### 4. Instalar dependencias y migrar
 
-- 🎨 **Deck con máximo 10 slides**.
+```bash
+npm install
+npx prisma migrate dev
+```
 
-> ⏱️ **MUY IMPORTANTE · El pitch son 5 minutos exactos.**
->
-> Tenemos **12 equipos** presentando, así que el tiempo está **súper limitado** y lo vamos a respetar estrictamente: **cuando se acaben los 5 minutos, se corta el pitch** —sin importar si iban en la mitad de la demo o en el último slide.
->
-> Ensayen con cronómetro **al menos 3 veces** antes del evento. Si su mejor versión dura 5:30, córtenla hasta que quepa en 4:45 y les sobren 15 segundos de margen. **Un pitch bueno que termina a tiempo siempre le gana a uno brillante que se corta.**
+### 5. Correr en desarrollo
 
-### 🧭 Principios
+```bash
+npm run dev
+```
 
-1. **Lean el problema antes de abrir el editor.** La frase que escriban describiendo lo que van a resolver vale más que las próximas 5 horas de código. → [Léelo aquí](./docs/problem/problema.md).
-2. **Manténganlo siempre ejecutable.** Desde la primera hora, el proyecto debe arrancar con un solo comando. Si lo rompen, **arreglarlo viene antes que cualquier feature nuevo**.
-3. **Vertical sobre horizontal.** Cada integrante debe poder hacer demo de algo que funciona — no de "la parte del backend".
-4. **30 minutos es el límite para cualquier bloqueador.** Si algo no cede: cámbienlo, mockéenlo o pidan ayuda a un mentor.
-5. **Sepan cómo los van a evaluar.** Lean la [Rúbrica de evaluación](./docs/resources/rubrica_participantes.md) **antes** de empezar a construir — los 6 criterios moldearán cada decisión que tomen.
+Abrir [http://localhost:3000](http://localhost:3000).
 
-> Todo lo demás —cómo llegar allá— **es parte de la hackathon**.
->
-> Ante la duda: **entreguen algo pequeño que funciona antes que algo grande que no.**
+### 6. Worker de ingestión (terminal aparte)
 
-### 🚀 Pasos sugeridos para las primeras 2 horas
-
-1. **Cloná este repo y verifiquen acceso** de todos los integrantes.
-2. **Lectura colectiva** del [problema](./docs/problem/problema.md), [contexto operacional](./docs/problem/contexto_operacional.md) y [rúbrica](./docs/resources/rubrica_participantes.md). (≈ 30 min)
-3. **Definan en una sola frase** el problema que van a resolver y compártanla con el equipo.
-4. **Validen acceso al middleware** con la API key del equipo siguiendo la [Guía técnica](./docs/resources/technical_guide.md).
-5. **Acuerden el stack** y dejen un "Hola Mundo" desplegado/corriendo localmente con un solo comando.
-6. **Definan rituales rápidos**: stand-ups cada 3 horas, branch principal protegida, mensajes de commit cortos.
+```bash
+npm run ingest
+```
 
 ---
 
-## Documentación adicional
+## Variables de entorno
 
-En [`docs/problem/`](./docs/problem/) está el **enunciado y el contexto** del reto; en [`docs/resources/`](./docs/resources/) están la **rúbrica**, la **guía técnica del middleware** y el **PDF de Cursor**. Juntos son la fuente de verdad: si algo en este README contradice esos archivos, **gana la documentación oficial**.
+Ver [`.env.example`](./.env.example). Las críticas:
 
-### Problema y contexto
+| Variable | Descripción |
+|---|---|
+| `MIDDLEWARE_BASE_URL` | `https://techos.thetribu.dev` |
+| `MIDDLEWARE_API_KEY` | `tk_...` de tu equipo |
+| `MINIMAX_API_KEY` | Key de MiniMax para Copilot |
+| `MINIMAX_BASE_URL` | `https://api.minimax.io/v1` |
+| `MINIMAX_MODEL` | `MiniMax-Text-01` |
+| `DATABASE_URL` | URL Postgres |
 
-- 📄 **[problema.md](./docs/problem/problema.md)** — Definición del problema central (problem statement).
-- 📄 **[contexto_operacional.md](./docs/problem/contexto_operacional.md)** — Cómo opera Techos Rentables hoy: KPIs, dispositivos, flujos manuales, restricciones.
+> `.env.local` está en `.gitignore`. Nunca subas secretos.
 
-### Recursos: evaluación, integración y herramientas
+---
 
-- 📄 **[rubrica_participantes.md](./docs/resources/rubrica_participantes.md)** — Los 6 criterios con los que el jurado va a evaluarlos.
+## Estructura
 
-#### Integración con proveedores (APIs)
+```
+sunhub/
+├─ src/
+│  ├─ app/                      # Rutas Next.js (App Router)
+│  │  ├─ dashboard/             # Control tower global
+│  │  ├─ plantas/               # Lista y detalle de plantas
+│  │  ├─ alarmas/               # Centro de alarmas
+│  │  ├─ predicciones/          # Alertas predictivas (IA)
+│  │  ├─ clima/                 # Inteligencia climática
+│  │  ├─ costo-beneficio/       # Benchmark de proveedores
+│  │  ├─ onboarding/            # Wizard alta proveedor/cliente
+│  │  ├─ copilot/               # Chat AI + reportes
+│  │  ├─ app/client/            # Portal móvil del cliente
+│  │  └─ api/                   # Endpoints
+│  ├─ components/
+│  ├─ lib/
+│  │  ├─ middleware.ts          # Cliente techos.thetribu.dev
+│  │  ├─ normalize.ts           # Adapters multi-marca
+│  │  ├─ minimax.ts             # Cliente MiniMax
+│  │  ├─ weather.ts             # Open-Meteo
+│  │  └─ prisma.ts
+│  └─ workers/
+│     └─ ingest.ts              # Poller cada 1–5 min
+├─ prisma/
+│  └─ schema.prisma
+└─ docs/
+   ├─ ESPECIFICACIONES_TECNICAS.md
+   ├─ problem/
+   └─ resources/
+```
 
-Durante el evento van a consumir datos reales de plantas solares a través del **middleware oficial** (`techos.thetribu.dev`), que ya resuelve la autenticación contra cada proveedor.
+---
 
-- 📄 **[technical_guide.md](./docs/resources/technical_guide.md)** — Guía técnica completa del middleware: URL base, autenticación con API key del equipo, ejemplos en `curl`, JavaScript y Python.
+## Mockups
 
-**Proveedores soportados:**
+Los diseños completos (12 pantallas) están en Stitch, proyecto `5847034811878630995`. Incluye Dashboard Global, Lista de Plantas, Detalle de Planta, Centro de Alarmas, Copilot AI, Alertas Predictivas, Client App (mobile), Onboarding Wizard, Inteligencia Climática, y Costo-Beneficio.
 
+---
 
-| Proveedor              | Slug      | Documentación oficial                                                                                        |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
-| **Growatt**            | `growatt` | [Growatt Server API Guide (PDF)](https://growatt.pl/wp-content/uploads/2020/01/Growatt-Server-API-Guide.pdf) |
-| **Huawei FusionSolar** | `huawei`  | [Huawei FusionSolar API](https://support.huawei.com/enterprise/en/doc/EDOC1100520173/baf43abb/basic)         |
-| **DeyeCloud**          | `deye`    | [Deye Developer Portal](https://developer.deyecloud.com/api)                                                 |
+## Documentación
 
-
-#### Productividad con IA
-
-- 📄 **[Cursor Cheat Sheet — Hack Cartago (PDF)](./docs/resources/cursor_cheat_sheet_hack_cartago.pdf)** — Atajos, prompts y patrones para sacarle el máximo provecho a Cursor durante la hackathon.
+- 📄 [`docs/ESPECIFICACIONES_TECNICAS.md`](./docs/ESPECIFICACIONES_TECNICAS.md) — Arquitectura, modelo de datos, APIs, plan 18h.
+- 📄 [`docs/problem/problema.md`](./docs/problem/problema.md) — Definición del problema.
+- 📄 [`docs/problem/contexto_operacional.md`](./docs/problem/contexto_operacional.md) — Contexto operacional de Techos Rentables.
+- 📄 [`docs/resources/technical_guide.md`](./docs/resources/technical_guide.md) — Middleware del hackathon.
 
 ---
 
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia **MIT**. Ver [`LICENSE`](./LICENSE).
-
-> Durante el evento el repositorio es privado. Al cerrar la hackathon será público y cualquier persona del ecosistema podrá usarlo, modificarlo y aprender de él. Así crece la comunidad. 🌱
+MIT — ver [`LICENSE`](./LICENSE).
 
 ---
 
-Hecho con 💛 por **[TINKU Hackathon 2026](https://hackathon.thetribu.dev/)**.
+**Equipo Los Incapaces** · Robert Triana · Duban Monsalve · John Nieto
