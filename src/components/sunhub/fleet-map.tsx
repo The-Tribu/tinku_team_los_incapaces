@@ -22,7 +22,15 @@ export type MapPoint = {
   capacityKwp: number;
 };
 
-export function FleetMap({ focusedId }: { focusedId?: string | null } = {}) {
+export function FleetMap({
+  focusedId,
+  onSelectPlant,
+  heightClass,
+}: {
+  focusedId?: string | null;
+  onSelectPlant?: (id: string) => void;
+  heightClass?: string;
+} = {}) {
   const [points, setPoints] = useState<MapPoint[]>([]);
   useEffect(() => {
     async function load() {
@@ -47,8 +55,8 @@ export function FleetMap({ focusedId }: { focusedId?: string | null } = {}) {
   }, []);
 
   return (
-    <div className="h-80 overflow-hidden rounded-xl border border-slate-200">
-      <InnerMap points={points} focusedId={focusedId ?? null} />
+    <div className={`${heightClass ?? "h-80"} overflow-hidden rounded-xl border border-slate-200`}>
+      <InnerMap points={points} focusedId={focusedId ?? null} onSelectPlant={onSelectPlant} />
     </div>
   );
 }

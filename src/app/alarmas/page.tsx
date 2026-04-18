@@ -77,6 +77,7 @@ export default async function AlarmsPage({
     openWarning,
     openInfo,
     resolvedSample,
+    activeProviders,
   ] = await Promise.all([
     prisma.alarm.findMany({
       where,
@@ -103,6 +104,13 @@ export default async function AlarmsPage({
       select: { startedAt: true, resolvedAt: true },
       take: 500,
     }),
+    // Catálogo completo de marcas con al menos un dispositivo en flota, para
+    // que el filtro muestre Huawei aunque todavía no haya alarmas Huawei.
+    prisma.provider.findMany({
+      where: { devices: { some: {} } },
+      select: { slug: true },
+      orderBy: { slug: "asc" },
+    }),
   ]);
 
   // MTTR (mean time-to-resolve) en minutos · ventana 30d
@@ -126,9 +134,14 @@ export default async function AlarmsPage({
     slaPct = (within / resolvedSample.length) * 100;
   }
 
-  // Marcas únicas presentes en las alarmas (para el filtro)
+  // Marcas disponibles para el filtro: catálogo de proveedores con
+  // dispositivos activos. Se unifican con los proveedores presentes en las
+  // alarmas visibles por si alguno quedó sin `device` (edge case legacy).
   const providerSlugs = Array.from(
-    new Set(alarms.map((a) => a.device.provider.slug)),
+    new Set([
+      ...activeProviders.map((p) => p.slug),
+      ...alarms.map((a) => a.device.provider.slug),
+    ]),
   ).sort();
 
   // Mapa a formato cliente

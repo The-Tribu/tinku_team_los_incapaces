@@ -43,13 +43,14 @@ model Session {
 
 // ── Comercial ─────────────────────────────────────────────────
 model Client {
-  id           String    @id @default(uuid()) @db.Uuid
-  name         String
-  contactEmail String?   @map("contact_email")
-  region       String?
-  createdAt    DateTime  @default(now()) @map("created_at")
-  plants       Plant[]
-  reports      Report[]
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String
+  contactEmail      String?          @map("contact_email")
+  region            String?
+  createdAt         DateTime         @default(now()) @map("created_at")
+  plants            Plant[]
+  reports           Report[]
+  reportSchedules   ReportSchedule[]
 
   @@map("clients")
 }
@@ -67,12 +68,13 @@ model Plant {
   contractEnd  DateTime? @map("contract_end") @db.Date
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  client       Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  devices      Device[]
-  contracts    Contract[]
-  reports      Report[]
-  policy       PlantAutomationPolicy?
-  remediations Remediation[]
+  client          Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  devices         Device[]
+  contracts       Contract[]
+  reports         Report[]
+  policy          PlantAutomationPolicy?
+  remediations    Remediation[]
+  reportSchedules ReportSchedule[]
 
   @@index([clientId])
   @@map("plants")
@@ -362,15 +364,77 @@ model Report {
   id            String   @id @default(uuid()) @db.Uuid
   clientId      String   @map("client_id") @db.Uuid
   plantId       String?  @map("plant_id") @db.Uuid
+  scheduleId    String?  @map("schedule_id") @db.Uuid
   period        DateTime @db.Date
-  status        String   @default("draft") // draft | generating | sent
+  status        String   @default("draft") // draft | generating | sent | failed
   pdfUrl        String?  @map("pdf_url")
   compliancePct Decimal? @map("compliance_pct") @db.Decimal(5, 2)
   generatedAt   DateTime @default(now()) @map("generated_at")
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  plant  Plant? @relation(fields: [plantId], references: [id])
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  plant    Plant?          @relation(fields: [plantId], references: [id])
+  schedule ReportSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
   @@index([clientId, period])
+  @@index([scheduleId])
   @@map("reports")
+}
+
+// Programaciones de reportes automáticos — ejecutados por el cron worker.
+model ReportSchedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  title          String
+  plantId        String?   @map("plant_id") @db.Uuid
+  clientId       String?   @map("client_id") @db.Uuid
+  // monthly | weekly | biweekly | quarterly
+  cadence        String
+  // Parámetros de la cadencia (todos opcionales según el tipo):
+  //   monthly    → dayOfMonth (1..28)
+  //   weekly     → dayOfWeek  (0..6; 0 = domingo)
+  //   biweekly   → dayOfWeek  + anchorDate
+  //   quarterly  → dayOfMonth (1..28) del primer mes de cada trimestre
+  dayOfMonth     Int?      @map("day_of_month")
+  dayOfWeek      Int?      @map("day_of_week")
+  hour           Int       @default(7)
+  minute         Int       @default(0)
+  timezone       String    @default("America/Bogota")
+  recipientEmail String?   @map("recipient_email")
+  active         Boolean   @default(true)
+  nextRunAt      DateTime  @map("next_run_at")
+  lastRunAt      DateTime? @map("last_run_at")
+  lastStatus     String?   @map("last_status") // success | failed
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  plant   Plant?   @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reports Report[]
+
+  @@index([active, nextRunAt])
+  @@map("report_schedules")
+}
+
+// ── Jobs en background ────────────────────────────────────────
+// Usado para correr predicciones masivas sin bloquear el request HTTP.
+// La UI consulta este modelo para mostrar spinner persistente en el header
+// y avisar cuando terminan (aunque el usuario haya navegado a otra página).
+model PredictionJob {
+  id              String    @id @default(uuid()) @db.Uuid
+  kind            String    @default("run-all") // run-all | (futuros tipos)
+  status          String    @default("pending") // pending | running | completed | failed
+  totalCount      Int       @default(0) @map("total_count")
+  processedCount  Int       @default(0) @map("processed_count")
+  successCount    Int       @default(0) @map("success_count")
+  failedCount     Int       @default(0) @map("failed_count")
+  totalPredictions Int      @default(0) @map("total_predictions")
+  currentPlant    String?   @map("current_plant")
+  startedBy       String?   @map("started_by") @db.Uuid
+  startedAt       DateTime  @default(now()) @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  error           String?
+  results         Json?
+
+  @@index([status, startedAt(sort: Desc)])
+  @@map("prediction_jobs")
 }

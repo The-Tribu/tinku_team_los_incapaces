@@ -19,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { getSessionUser, type Role } from "@/lib/auth";
 import { UserMenu } from "./user-menu";
 import { AlarmBell } from "./alarm-bell";
+import { JobsIndicator } from "./jobs-indicator";
 
 type NavItem = {
   href: string;
@@ -95,6 +96,7 @@ export async function AppShell({
           </div>
           <div className="flex items-center gap-3">
             {actions}
+            <JobsIndicator />
             <AlarmBell />
             <UserMenu user={user} />
           </div>

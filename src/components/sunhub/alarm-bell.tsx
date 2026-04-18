@@ -138,13 +138,25 @@ export function AlarmBell() {
 
   function handleEvent(event: AlarmEvent) {
     if (event.kind === "new") {
-      setAlarms((prev) => [{
-        id: event.id,
-        severity: event.severity,
-        message: event.message,
-        startedAt: event.startedAt,
-        plant: { name: event.plantName, code: event.plantCode },
-      }, ...prev].slice(0, 8));
+      // Deduplicar: el SSE puede re-emitir la misma alarma por DB-poll + bus
+      // in-process (dos fuentes), y el fetch inicial ya trae las abiertas.
+      // Si ya la tenemos, la saltamos (sin incrementar contadores ni sonar).
+      let alreadySeen = false;
+      setAlarms((prev) => {
+        if (prev.some((x) => x.id === event.id)) {
+          alreadySeen = true;
+          return prev;
+        }
+        return [{
+          id: event.id,
+          severity: event.severity,
+          message: event.message,
+          startedAt: event.startedAt,
+          plant: { name: event.plantName, code: event.plantCode },
+        }, ...prev].slice(0, 8);
+      });
+      if (alreadySeen) return;
+
       setOpenCount((c) => c + 1);
       if (event.severity === "critical") setCriticalCount((c) => c + 1);
 
@@ -163,9 +175,16 @@ export function AlarmBell() {
         }
       }
     } else if (event.kind === "resolved") {
-      setAlarms((prev) => prev.filter((a) => a.id !== event.id));
-      setOpenCount((c) => Math.max(0, c - 1));
-      if (event.severity === "critical") setCriticalCount((c) => Math.max(0, c - 1));
+      let wasPresent = false;
+      setAlarms((prev) => {
+        const next = prev.filter((a) => a.id !== event.id);
+        wasPresent = next.length !== prev.length;
+        return next;
+      });
+      if (wasPresent) {
+        setOpenCount((c) => Math.max(0, c - 1));
+        if (event.severity === "critical") setCriticalCount((c) => Math.max(0, c - 1));
+      }
     }
   }
 
@@ -249,8 +268,12 @@ export function AlarmBell() {
               </li>
             ) : (
               alarms.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="flex items-start gap-2">
+                <li key={a.id}>
+                  <Link
+                    href={`/alarmas?selectedId=${a.id}`}
+                    onClick={() => setOpen(false)}
+                    className="flex items-start gap-2 px-4 py-3 transition hover:bg-slate-50"
+                  >
                     <span
                       className={cn(
                         "mt-1 h-2 w-2 shrink-0 rounded-full",
@@ -270,7 +293,7 @@ export function AlarmBell() {
                         {new Date(a.startedAt).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 </li>
               ))
             )}

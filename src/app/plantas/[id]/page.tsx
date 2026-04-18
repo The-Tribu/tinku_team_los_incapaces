@@ -21,10 +21,8 @@ import { cn } from "@/lib/cn";
 import { displayClientLabel, isUmbrellaClient } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
 import { BrandComparison, type BrandBar } from "./_components/brand-comparison";
-import {
-  GenerationVsBaseline,
-  type GenerationPoint,
-} from "./_components/generation-vs-baseline";
+import { type GenerationPoint } from "./_components/generation-vs-baseline";
+import { GenerationPanel } from "./_components/generation-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -349,7 +347,11 @@ export default async function PlantDetailPage({
             </div>
           }
         >
-          <GenerationVsBaseline data={hours} height={260} />
+          <GenerationPanel
+            plantId={plant.id}
+            hours={hours}
+            hasUpstream={distinctBrands.includes("huawei")}
+          />
         </SectionCard>
         <SectionCard
           title="Comparativa entre marcas"

@@ -39,6 +39,7 @@ import { readingEndpoint } from "../lib/providers";
 import { evaluateRules } from "../lib/rules";
 import { loadBaseline, zScore, anomalySeverity, type BaselineMetric } from "../lib/baselines";
 import { predictForPlant } from "../lib/predictions";
+import { fetchHuaweiPlantReading } from "../lib/huawei";
 
 // Cooldown para no disparar la misma predicción proactiva en ticks consecutivos.
 // Key = deviceId → timestamp. TTL = 30 min.
@@ -49,6 +50,29 @@ async function fetchReading(
   slug: ProviderSlug,
   externalId: string,
 ): Promise<CanonicalReading | null> {
+  // Huawei requiere flujo multi-step (getDevList → getDevRealKpi) para tener
+  // `active_power` real; el endpoint plano getStationRealKpi solo devuelve
+  // energía acumulada del día. Si el flujo multi-step falla o no hay
+  // inversores en la planta, caemos al endpoint estándar para al menos
+  // capturar day_power / real_health_state.
+  if (slug === "huawei") {
+    try {
+      const reading = await fetchHuaweiPlantReading(externalId);
+      if (reading) return reading;
+    } catch (err) {
+      if (err instanceof MiddlewareError) {
+        console.warn(
+          `[ingest] huawei/${externalId} multi-step → ${err.status}: ${err.body.slice(0, 100)}`,
+        );
+      } else {
+        console.warn(
+          `[ingest] huawei/${externalId} multi-step → ${(err as Error).message}`,
+        );
+      }
+      // fall-through al endpoint estándar abajo
+    }
+  }
+
   const ep = readingEndpoint(slug, externalId);
   const init: RequestInit = { method: ep.method };
   if (ep.body !== undefined) init.body = JSON.stringify(ep.body);

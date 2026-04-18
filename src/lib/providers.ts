@@ -73,6 +73,8 @@ export function alarmsEndpoint(
         },
       };
     case "huawei":
+      // Docs huawei/04-alarm.md: beginTime/endTime en ms, ventana ≤ 7 días.
+      // `language` no está en el contrato oficial — alarmas llegan en inglés.
       return {
         method: "POST",
         path: "/huawei/thirdData/getAlarmList",
@@ -80,7 +82,6 @@ export function alarmsEndpoint(
           stationCodes: externalId,
           beginTime: start,
           endTime: now,
-          language: "es_ES",
         },
       };
     case "growatt":

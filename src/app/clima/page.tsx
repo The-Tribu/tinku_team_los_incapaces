@@ -21,6 +21,9 @@ export default async function ClimaPage() {
           label: `${p.code} · ${p.name}`,
           client: displayClientLabel(p.client, { name: p.name }),
           capacityKwp: Number(p.capacityKwp ?? 0),
+          location: p.location,
+          lat: p.lat != null ? Number(p.lat) : null,
+          lng: p.lng != null ? Number(p.lng) : null,
         }))}
       />
     </AppShell>

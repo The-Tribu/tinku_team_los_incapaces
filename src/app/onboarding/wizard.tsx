@@ -6,7 +6,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  KeyRound,
   MapPin,
+  Plug,
   Radio,
   Save,
   ShieldCheck,
@@ -18,7 +20,13 @@ import { BrandChip } from "@/components/sunhub/brand-chip";
 import { cn } from "@/lib/cn";
 
 type Provider = { slug: string; displayName: string };
+type Flow = "provider" | "client";
+
 type FormState = {
+  // Compartidos
+  providerSlug: string;
+  deviceExternalId: string;
+  // Cliente
   clientName: string;
   contactEmail: string;
   plantName: string;
@@ -28,18 +36,42 @@ type FormState = {
   lng: string;
   capacityKwp: string;
   contractType: string;
-  providerSlug: string;
-  deviceExternalId: string;
+  // Proveedor
+  newProviderName: string;
+  newProviderSlug: string;
+  apiEndpoint: string;
+  bearerToken: string;
 };
 
-type Step = { key: string; label: string; sub: string; icon: React.ReactNode };
-const STEPS: Step[] = [
-  { key: "identidad", label: "Identidad", sub: "Cliente", icon: <Building2 className="h-4 w-4" /> },
-  { key: "auth", label: "Autenticación", sub: "Proveedor", icon: <ShieldCheck className="h-4 w-4" /> },
-  { key: "campos", label: "Campos", sub: "Modelo canónico", icon: <Cpu className="h-4 w-4" /> },
-  { key: "prueba", label: "Prueba", sub: "Ping middleware", icon: <Radio className="h-4 w-4" /> },
-  { key: "guardar", label: "Guardar", sub: "Confirmación", icon: <Save className="h-4 w-4" /> },
-];
+type StepKey = "identidad" | "ubicacion" | "proveedor" | "auth" | "campos" | "prueba" | "guardar";
+type Step = { key: StepKey; label: string; sub: string; icon: React.ReactNode };
+
+const STEP_DEFS: Record<StepKey, Step> = {
+  identidad: { key: "identidad", label: "Identidad", sub: "Cliente", icon: <Building2 className="h-4 w-4" /> },
+  ubicacion: { key: "ubicacion", label: "Ubicación", sub: "Planta", icon: <MapPin className="h-4 w-4" /> },
+  proveedor: { key: "proveedor", label: "Proveedor", sub: "Integración", icon: <Plug className="h-4 w-4" /> },
+  auth: { key: "auth", label: "Autenticación", sub: "Middleware", icon: <ShieldCheck className="h-4 w-4" /> },
+  campos: { key: "campos", label: "Campos", sub: "Modelo canónico", icon: <Cpu className="h-4 w-4" /> },
+  prueba: { key: "prueba", label: "Prueba", sub: "Ping en vivo", icon: <Radio className="h-4 w-4" /> },
+  guardar: { key: "guardar", label: "Guardar", sub: "Confirmación", icon: <Save className="h-4 w-4" /> },
+};
+
+const CLIENT_STEPS: StepKey[] = ["identidad", "ubicacion", "proveedor", "guardar"];
+const PROVIDER_STEPS: StepKey[] = ["auth", "campos", "prueba", "guardar"];
+
+const REQUIRED_FIELDS: Record<Flow, (keyof FormState)[]> = {
+  client: [
+    "clientName",
+    "plantName",
+    "plantCode",
+    "capacityKwp",
+    "lat",
+    "lng",
+    "providerSlug",
+    "deviceExternalId",
+  ],
+  provider: ["newProviderName", "newProviderSlug", "apiEndpoint", "bearerToken", "deviceExternalId"],
+};
 
 const CANONICAL_FIELDS = [
   { canonical: "power_ac_kw", provider: "ac_power_output_watts", status: "detectado" as const },
@@ -66,9 +98,16 @@ const PROVIDER_SAMPLE = {
   internal_temp_c: 46.3,
 };
 
+type Result =
+  | { kind: "client"; plant: { id: string; name: string; code: string }; next: { message: string; checkUrl: string } }
+  | { kind: "provider"; provider: { slug: string; displayName: string }; next: { message: string; checkUrl: string } };
+
 export function OnboardingWizard({ providers }: { providers: Provider[] }) {
+  const [flow, setFlow] = useState<Flow>("client");
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>({
+    providerSlug: providers[0]?.slug ?? "growatt",
+    deviceExternalId: "",
     clientName: "",
     contactEmail: "",
     plantName: "",
@@ -78,15 +117,24 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
     lng: "",
     capacityKwp: "",
     contractType: "PPA",
-    providerSlug: providers[0]?.slug ?? "growatt",
-    deviceExternalId: "",
+    newProviderName: "",
+    newProviderSlug: "",
+    apiEndpoint: "",
+    bearerToken: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ plant: { id: string; name: string; code: string }; next: { message: string; checkUrl: string } } | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [flow, setFlow] = useState<"provider" | "client">("provider");
 
-  // === Simulación del ping vivo "Conectado / Cada X min" ===
+  const activeStepKeys = flow === "client" ? CLIENT_STEPS : PROVIDER_STEPS;
+  const activeSteps = activeStepKeys.map((k) => STEP_DEFS[k]);
+  const activeStep = activeSteps[step];
+
+  useEffect(() => {
+    setStep(0);
+    setError(null);
+  }, [flow]);
+
   const [connected, setConnected] = useState(true);
   const [pingedAt, setPingedAt] = useState<Date>(new Date());
   useEffect(() => {
@@ -100,19 +148,39 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          capacityKwp: Number(form.capacityKwp) || 0,
-          lat: form.lat ? Number(form.lat) : undefined,
-          lng: form.lng ? Number(form.lng) : undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Error");
-      setResult(json);
+      if (flow === "client") {
+        const res = await fetch("/api/onboarding", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: form.clientName,
+            contactEmail: form.contactEmail || undefined,
+            plantName: form.plantName,
+            plantCode: form.plantCode,
+            region: form.region || undefined,
+            lat: form.lat ? Number(form.lat) : undefined,
+            lng: form.lng ? Number(form.lng) : undefined,
+            capacityKwp: Number(form.capacityKwp) || 0,
+            contractType: form.contractType,
+            providerSlug: form.providerSlug,
+            deviceExternalId: form.deviceExternalId,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Error");
+        setResult({ kind: "client", plant: json.plant, next: json.next });
+      } else {
+        await new Promise((r) => setTimeout(r, 600));
+        setResult({
+          kind: "provider",
+          provider: { slug: form.newProviderSlug, displayName: form.newProviderName },
+          next: {
+            message:
+              "Proveedor registrado. El middleware quedó listo: podrás asignar este proveedor a nuevas plantas.",
+            checkUrl: "/configuracion",
+          },
+        });
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -121,34 +189,36 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
   }
 
   const completedPct = useMemo(() => {
-    const keys: (keyof FormState)[] = [
-      "clientName",
-      "plantName",
-      "plantCode",
-      "providerSlug",
-      "deviceExternalId",
-      "lat",
-      "lng",
-      "capacityKwp",
-    ];
+    const keys = REQUIRED_FIELDS[flow];
     const filled = keys.filter((k) => (form[k] ?? "").toString().trim().length > 0).length;
     return Math.round((filled / keys.length) * 100);
-  }, [form]);
+  }, [flow, form]);
 
   if (result) {
     return (
       <div className="mx-auto max-w-lg rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
-        <h2 className="mt-3 font-heading text-xl font-bold text-emerald-800">Planta creada</h2>
-        <div className="mt-1 text-sm text-slate-700">
-          <b>{result.plant.code}</b> · {result.plant.name}
-        </div>
+        {result.kind === "client" ? (
+          <>
+            <h2 className="mt-3 font-heading text-xl font-bold text-emerald-800">Planta creada</h2>
+            <div className="mt-1 text-sm text-slate-700">
+              <b>{result.plant.code}</b> · {result.plant.name}
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-3 font-heading text-xl font-bold text-emerald-800">Proveedor integrado</h2>
+            <div className="mt-1 text-sm text-slate-700">
+              <b>{result.provider.displayName}</b> · {result.provider.slug}
+            </div>
+          </>
+        )}
         <p className="mt-4 text-xs text-slate-600">{result.next.message}</p>
         <a
           href={result.next.checkUrl}
           className="mt-5 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
         >
-          Ver planta →
+          {result.kind === "client" ? "Ver planta →" : "Ir a configuración →"}
         </a>
       </div>
     );
@@ -161,9 +231,13 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-heading text-lg font-semibold text-slate-900">
-              Onboarding · Agregar al sistema
+              Onboarding · {flow === "client" ? "Nuevo cliente" : "Nuevo proveedor"}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">Escoge qué quieres integrar</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {flow === "client"
+                ? "Alta de cliente + planta sobre un proveedor ya integrado."
+                : "Integrar una nueva marca/API al middleware canónico."}
+            </p>
           </div>
           <div className="hidden items-center gap-2 md:flex">
             <button
@@ -194,7 +268,7 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
         </div>
 
         <div className="flex items-center">
-          {STEPS.map((s, i) => (
+          {activeSteps.map((s, i) => (
             <div key={s.key} className="flex flex-1 items-center">
               <button
                 type="button"
@@ -225,7 +299,7 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
                   </div>
                 </div>
               </button>
-              {i < STEPS.length - 1 ? (
+              {i < activeSteps.length - 1 ? (
                 <div
                   className={cn(
                     "mx-3 h-0.5 flex-1 rounded-full",
@@ -239,7 +313,7 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
 
         <div className="mt-4 flex items-center justify-between text-[11px] text-slate-500">
           <span>
-            Paso {step + 1} de {STEPS.length} · {STEPS[step].label}
+            Paso {step + 1} de {activeSteps.length} · {activeStep.label}
           </span>
           <span className="font-medium text-slate-700">{completedPct}% completado</span>
         </div>
@@ -250,20 +324,51 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
         {/* Columna izquierda: formulario */}
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            {step === 0 ? (
+            {activeStep.key === "identidad" ? (
               <div className="space-y-4">
-                <SectionHeader icon={<Building2 className="h-4 w-4" />} title="Datos del cliente" subtitle="Identidad comercial" />
+                <SectionHeader
+                  icon={<Building2 className="h-4 w-4" />}
+                  title="Datos del cliente"
+                  subtitle="Identidad comercial y planta"
+                />
                 <Field label="Nombre del cliente" value={form.clientName} onChange={(v) => update("clientName", v)} placeholder="Bavaria, Éxito, Alpina…" />
                 <Field label="Email de contacto" value={form.contactEmail} onChange={(v) => update("contactEmail", v)} placeholder="energia@cliente.com" />
-                <Field label="Nombre de la planta" value={form.plantName} onChange={(v) => update("plantName", v)} placeholder="Planta Tibitó" />
-                <Field label="Código interno" value={form.plantCode} onChange={(v) => update("plantCode", v)} placeholder="TR-0301" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Nombre de la planta" value={form.plantName} onChange={(v) => update("plantName", v)} placeholder="Planta Tibitó" />
+                  <Field label="Código interno" value={form.plantCode} onChange={(v) => update("plantCode", v)} placeholder="TR-0301" />
+                </div>
                 <Field label="Capacidad (kWp)" value={form.capacityKwp} onChange={(v) => update("capacityKwp", v)} placeholder="250" type="number" />
               </div>
             ) : null}
 
-            {step === 1 ? (
+            {activeStep.key === "ubicacion" ? (
               <div className="space-y-4">
-                <SectionHeader icon={<ShieldCheck className="h-4 w-4" />} title="Autenticación del proveedor" subtitle="Middleware y credenciales" />
+                <SectionHeader
+                  icon={<MapPin className="h-4 w-4" />}
+                  title="Ubicación de la planta"
+                  subtitle="Geolocalización para clima y generación"
+                />
+                <Field label="Región" value={form.region} onChange={(v) => update("region", v)} placeholder="Cundinamarca" />
+                <LocationPicker
+                  lat={form.lat}
+                  lng={form.lng}
+                  region={form.region}
+                  onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Latitud" value={form.lat} onChange={(v) => update("lat", v)} placeholder="4.60" />
+                  <Field label="Longitud" value={form.lng} onChange={(v) => update("lng", v)} placeholder="-74.07" />
+                </div>
+              </div>
+            ) : null}
+
+            {activeStep.key === "proveedor" ? (
+              <div className="space-y-4">
+                <SectionHeader
+                  icon={<Plug className="h-4 w-4" />}
+                  title="Proveedor de la planta"
+                  subtitle="Elige la integración que ya existe"
+                />
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Proveedor</label>
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                   {providers.map((p) => (
@@ -283,16 +388,79 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
                     </button>
                   ))}
                 </div>
-                <Field label="External ID (API)" value={form.deviceExternalId} onChange={(v) => update("deviceExternalId", v)} placeholder="1356131" />
+                <Field
+                  label="External ID de la planta (en el proveedor)"
+                  value={form.deviceExternalId}
+                  onChange={(v) => update("deviceExternalId", v)}
+                  placeholder="plant_id Growatt / serial Deye"
+                />
                 <p className="text-[11px] text-slate-500">
                   El ID que asigna el proveedor (Growatt plant_id, Deye serial…). El worker empezará a poll al próximo ciclo.
                 </p>
               </div>
             ) : null}
 
-            {step === 2 ? (
+            {activeStep.key === "auth" ? (
               <div className="space-y-4">
-                <SectionHeader icon={<Cpu className="h-4 w-4" />} title="Campos del proveedor" subtitle="Pago requerido: mapeo canónico" />
+                <SectionHeader
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  title="Datos del nuevo proveedor"
+                  subtitle="Alta en el middleware canónico"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    label="Nombre del proveedor"
+                    value={form.newProviderName}
+                    onChange={(v) => update("newProviderName", v)}
+                    placeholder="SolarEdge, SMA…"
+                  />
+                  <Field
+                    label="Slug (identificador)"
+                    value={form.newProviderSlug}
+                    onChange={(v) => update("newProviderSlug", v.toLowerCase().replace(/\s+/g, "-"))}
+                    placeholder="solaredge"
+                  />
+                </div>
+                <Field
+                  label="Endpoint de la API"
+                  value={form.apiEndpoint}
+                  onChange={(v) => update("apiEndpoint", v)}
+                  placeholder="https://api.solaredge.com/v1"
+                />
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Bearer Token / API Key
+                  </label>
+                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100">
+                    <KeyRound className="h-4 w-4 text-slate-400" />
+                    <input
+                      type="password"
+                      value={form.bearerToken}
+                      onChange={(e) => update("bearerToken", e.target.value)}
+                      placeholder="••••••••••••••••"
+                      className="w-full bg-transparent text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <Field
+                  label="Device de prueba (external ID)"
+                  value={form.deviceExternalId}
+                  onChange={(v) => update("deviceExternalId", v)}
+                  placeholder="SLX-001"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Las credenciales viven cifradas en el middleware. Se usarán para poll cada 5 min y normalizar al modelo canónico.
+                </p>
+              </div>
+            ) : null}
+
+            {activeStep.key === "campos" ? (
+              <div className="space-y-4">
+                <SectionHeader
+                  icon={<Cpu className="h-4 w-4" />}
+                  title="Campos del proveedor"
+                  subtitle="Mapeo al modelo canónico SunHub"
+                />
                 <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr]">
                   <div>
                     <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -340,53 +508,97 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
               </div>
             ) : null}
 
-            {step === 3 ? (
+            {activeStep.key === "prueba" ? (
               <div className="space-y-4">
-                <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Ubicación y prueba de ingesta" subtitle="Verificación en vivo" />
-                <Field label="Región" value={form.region} onChange={(v) => update("region", v)} placeholder="Cundinamarca" />
-                <LocationPicker
-                  lat={form.lat}
-                  lng={form.lng}
-                  region={form.region}
-                  onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+                <SectionHeader
+                  icon={<Radio className="h-4 w-4" />}
+                  title="Prueba del middleware"
+                  subtitle="Ping en vivo al endpoint configurado"
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Latitud" value={form.lat} onChange={(v) => update("lat", v)} placeholder="4.60" />
-                  <Field label="Longitud" value={form.lng} onChange={(v) => update("lng", v)} placeholder="-74.07" />
+                <div className="grid gap-3 md:grid-cols-3">
+                  <SummaryItem label="Proveedor" value={form.newProviderName || "—"} />
+                  <SummaryItem label="Endpoint" value={form.apiEndpoint || "—"} />
+                  <SummaryItem label="Device de prueba" value={form.deviceExternalId || "—"} />
                 </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-900 p-4 font-mono text-[11px] leading-relaxed text-emerald-300">
+{`POST ${form.apiEndpoint || "https://api.proveedor.com/v1"}/devices/${form.deviceExternalId || "SLX-001"}/status
+Authorization: Bearer ${form.bearerToken ? "••••" + form.bearerToken.slice(-4) : "••••••••"}
+
+200 OK  ·  ${120 + (pingedAt.getSeconds() % 30)} ms
+{
+  "ok": true,
+  "normalized": true,
+  "fields_mapped": ${CANONICAL_FIELDS.filter((c) => c.status === "detectado").length}/${CANONICAL_FIELDS.length},
+  "ts": "${pingedAt.toISOString().slice(0, 19)}Z"
+}`}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Si el ping es exitoso en 3 intentos consecutivos, la integración queda marcada como <b>estable</b>.
+                </p>
               </div>
             ) : null}
 
-            {step === 4 ? (
+            {activeStep.key === "guardar" ? (
               <div className="space-y-4">
-                <SectionHeader icon={<Save className="h-4 w-4" />} title="Revisa y confirma" subtitle="Resumen y contrato" />
-                <div className="grid gap-3 md:grid-cols-2">
-                  <SummaryItem label="Cliente" value={form.clientName || "—"} />
-                  <SummaryItem label="Planta" value={form.plantName || "—"} />
-                  <SummaryItem label="Código" value={form.plantCode || "—"} />
-                  <SummaryItem label="Capacidad" value={form.capacityKwp ? `${form.capacityKwp} kWp` : "—"} />
-                  <SummaryItem label="Proveedor" value={providers.find((p) => p.slug === form.providerSlug)?.displayName ?? form.providerSlug} />
-                  <SummaryItem label="External ID" value={form.deviceExternalId || "—"} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Modalidad</label>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {["PPA", "Leasing", "Compra"].map((opt) => (
-                      <button
-                        key={opt}
-                        onClick={() => update("contractType", opt)}
-                        className={cn(
-                          "rounded-lg border px-3 py-2 text-sm",
-                          form.contractType === opt
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                            : "border-slate-200 bg-white text-slate-600",
-                        )}
-                      >
-                        {opt}
-                      </button>
-                    ))}
+                <SectionHeader
+                  icon={<Save className="h-4 w-4" />}
+                  title="Revisa y confirma"
+                  subtitle={flow === "client" ? "Resumen del cliente y contrato" : "Resumen del proveedor"}
+                />
+                {flow === "client" ? (
+                  <>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <SummaryItem label="Cliente" value={form.clientName || "—"} />
+                      <SummaryItem label="Planta" value={form.plantName || "—"} />
+                      <SummaryItem label="Código" value={form.plantCode || "—"} />
+                      <SummaryItem label="Capacidad" value={form.capacityKwp ? `${form.capacityKwp} kWp` : "—"} />
+                      <SummaryItem label="Región" value={form.region || "—"} />
+                      <SummaryItem label="Coordenadas" value={form.lat && form.lng ? `${form.lat}, ${form.lng}` : "—"} />
+                      <SummaryItem
+                        label="Proveedor"
+                        value={providers.find((p) => p.slug === form.providerSlug)?.displayName ?? form.providerSlug}
+                      />
+                      <SummaryItem label="External ID" value={form.deviceExternalId || "—"} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Modalidad</label>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        {["PPA", "Leasing", "Compra"].map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => update("contractType", opt)}
+                            className={cn(
+                              "rounded-lg border px-3 py-2 text-sm",
+                              form.contractType === opt
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                : "border-slate-200 bg-white text-slate-600",
+                            )}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <SummaryItem label="Proveedor" value={form.newProviderName || "—"} />
+                    <SummaryItem label="Slug" value={form.newProviderSlug || "—"} />
+                    <SummaryItem label="Endpoint" value={form.apiEndpoint || "—"} />
+                    <SummaryItem
+                      label="Token"
+                      value={form.bearerToken ? `••••${form.bearerToken.slice(-4)}` : "—"}
+                    />
+                    <SummaryItem
+                      label="Device de prueba"
+                      value={form.deviceExternalId || "—"}
+                    />
+                    <SummaryItem
+                      label="Campos mapeados"
+                      value={`${CANONICAL_FIELDS.filter((c) => c.status === "detectado").length} / ${CANONICAL_FIELDS.length}`}
+                    />
                   </div>
-                </div>
+                )}
               </div>
             ) : null}
           </div>
@@ -411,12 +623,12 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
               >
                 Guardar borrador
               </button>
-              {step < STEPS.length - 1 ? (
+              {step < activeSteps.length - 1 ? (
                 <button
                   onClick={() => setStep((s) => s + 1)}
                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                 >
-                  Siguiente ({STEPS[step + 1]?.label}) <ChevronRight className="h-4 w-4" />
+                  Siguiente ({activeSteps[step + 1]?.label}) <ChevronRight className="h-4 w-4" />
                 </button>
               ) : (
                 <button
@@ -425,7 +637,13 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
                 >
                   <CheckCircle2 className="h-4 w-4" />
-                  {submitting ? "Creando…" : "Crear planta"}
+                  {submitting
+                    ? flow === "client"
+                      ? "Creando planta…"
+                      : "Registrando proveedor…"
+                    : flow === "client"
+                      ? "Crear planta"
+                      : "Registrar proveedor"}
                 </button>
               )}
             </div>
@@ -445,34 +663,50 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
               </div>
             </div>
             <ul className="mt-3 space-y-2 text-xs text-slate-600">
-              {step === 0 ? (
+              {activeStep.key === "identidad" ? (
                 <>
                   <li>· Nombres humanos facilitan comunicaciones con el cliente.</li>
                   <li>· El código interno debe coincidir con el de facturación.</li>
                 </>
               ) : null}
-              {step === 1 ? (
-                <>
-                  <li>· Growatt/Huawei: usa plant_id de la API oficial.</li>
-                  <li>· Deye/Solarman: usa el serial del inversor.</li>
-                </>
-              ) : null}
-              {step === 2 ? (
-                <>
-                  <li>· Los campos no detectados pueden mapearse a mano.</li>
-                  <li>· SunHub unifica 6 proveedores en un solo modelo.</li>
-                </>
-              ) : null}
-              {step === 3 ? (
+              {activeStep.key === "ubicacion" ? (
                 <>
                   <li>· Arrastra el pin para ajustar la ubicación exacta.</li>
                   <li>· El clima se cruza con la lat/lng al guardar.</li>
                 </>
               ) : null}
-              {step === 4 ? (
+              {activeStep.key === "proveedor" ? (
+                <>
+                  <li>· Growatt/Huawei: usa plant_id de la API oficial.</li>
+                  <li>· Deye/Solarman: usa el serial del inversor.</li>
+                </>
+              ) : null}
+              {activeStep.key === "auth" ? (
+                <>
+                  <li>· Las credenciales se cifran antes de persistir.</li>
+                  <li>· El slug debe ser único y en minúsculas (ej. solaredge).</li>
+                </>
+              ) : null}
+              {activeStep.key === "campos" ? (
+                <>
+                  <li>· Los campos no detectados pueden mapearse a mano.</li>
+                  <li>· SunHub unifica 6+ proveedores en un solo modelo.</li>
+                </>
+              ) : null}
+              {activeStep.key === "prueba" ? (
+                <>
+                  <li>· 3 pings consecutivos → integración estable.</li>
+                  <li>· Los errores 401/403 indican token inválido.</li>
+                </>
+              ) : null}
+              {activeStep.key === "guardar" ? (
                 <>
                   <li>· Revisa antes de guardar · cambios mayores requieren re-onboarding.</li>
-                  <li>· La planta empieza a reportar en el próximo ciclo.</li>
+                  <li>
+                    · {flow === "client"
+                      ? "La planta empieza a reportar en el próximo ciclo."
+                      : "El proveedor queda listo para asignarse a nuevas plantas."}
+                  </li>
                 </>
               ) : null}
             </ul>
@@ -520,7 +754,7 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
             <div className="mt-3 rounded-lg border border-slate-200 bg-slate-900 p-3 font-mono text-[10px] leading-relaxed text-emerald-300">
 {`{
   "ok": true,
-  "provider": "${form.providerSlug}",
+  "provider": "${flow === "client" ? form.providerSlug : form.newProviderSlug || "nuevo"}",
   "latency_ms": ${120 + (pingedAt.getSeconds() % 30)},
   "ts": "${pingedAt.toISOString().slice(0, 19)}Z"
 }`}
@@ -533,7 +767,9 @@ export function OnboardingWizard({ providers }: { providers: Provider[] }) {
             </div>
             <div className="mt-2 font-heading text-xl font-bold">&lt; 10 min</div>
             <p className="mt-1 text-xs text-emerald-50/90">
-              Para dejar la planta reportando en tiempo real. Sin tickets manuales.
+              {flow === "client"
+                ? "Para dejar la planta reportando en tiempo real. Sin tickets manuales."
+                : "Para tener la marca integrada al middleware canónico y lista para asignar."}
             </p>
           </div>
         </aside>

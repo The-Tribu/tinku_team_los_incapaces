@@ -198,9 +198,14 @@ function normalizeDeyeStationData(externalId: string, resp: unknown): CanonicalR
 //   POST /huawei/thirdData/stations          → lista paginada
 //   POST /huawei/thirdData/getStationRealKpi → datos en tiempo real
 //
-// `dataItemMap` trae: day_power, month_power, total_power, day_income,
-// total_income, day_on_grid_energy, day_use_energy, real_health_state
-// (1=disconnected, 2=faulty, 3=healthy).
+// `dataItemMap` trae: day_power (kWh hoy), month_power, total_power,
+// day_income, total_income, day_on_grid_energy, day_use_energy,
+// real_health_state (0=desconectado, 1=normal, 2=alarma menor, 3=alarma mayor).
+//
+// Nota: `getStationRealKpi` **no** reporta potencia instantánea. Para tener
+// `active_power` (kW en este momento) hay que llamar `/thirdData/getDevRealKpi`
+// por `devId` del inversor. Mientras tanto, `power_ac_kw` queda en 0 y el
+// motor de lecturas usa `energy_kwh` (day_power) para alimentar el contador.
 
 type HuaweiEnvelope<T> = {
   success?: boolean;
@@ -210,12 +215,18 @@ type HuaweiEnvelope<T> = {
 };
 
 type HuaweiStation = {
-  stationCode: string;
+  // v2 `/thirdData/stations` usa estos nombres (capacity en kW).
+  plantCode?: string;
+  plantName?: string;
+  plantAddress?: string;
+  // v1 `/thirdData/getStationList` usa estos (capacity en MW).
+  stationCode?: string;
   stationName?: string;
   stationAddr?: string;
-  capacity?: number; // kWp
-  latitude?: number;
-  longitude?: number;
+  capacity?: number;
+  latitude?: number | string;
+  longitude?: number | string;
+  gridConnectionDate?: string;
   buildState?: string;
   combineType?: string;
   aidType?: number;
@@ -240,21 +251,34 @@ function normalizeHuaweiStationList(resp: unknown): CanonicalPlant[] {
   if (!r) return [];
   const list = Array.isArray(r.data) ? r.data : (r.data as { list?: HuaweiStation[] })?.list;
   if (!Array.isArray(list)) return [];
-  return list.map((s) => ({
-    external_id: s.stationCode,
-    name: s.stationName ?? `Huawei ${s.stationCode}`,
-    location: s.stationAddr ?? undefined,
-    lat: num(s.latitude),
-    lng: num(s.longitude),
-    capacity_kwp: num(s.capacity),
-  }));
+  // El endpoint v1 (`getStationList`) devuelve capacity en MW; el v2 (`stations`)
+  // lo devuelve en kW. Detectamos cuál es por la presencia de `plantCode`.
+  const isV2 = list.some((s) => Boolean(s.plantCode));
+  const plants: CanonicalPlant[] = [];
+  for (const s of list) {
+    const externalId = s.plantCode ?? s.stationCode;
+    if (!externalId) continue;
+    const rawCapacity = num(s.capacity);
+    const capacity_kwp =
+      rawCapacity === undefined ? undefined : isV2 ? rawCapacity : rawCapacity * 1000;
+    plants.push({
+      external_id: externalId,
+      name: s.plantName ?? s.stationName ?? `Huawei ${externalId}`,
+      location: s.plantAddress ?? s.stationAddr ?? undefined,
+      lat: num(s.latitude),
+      lng: num(s.longitude),
+      capacity_kwp,
+    });
+  }
+  return plants;
 }
 
 function huaweiStatusFrom(healthState: number | undefined, ageMin: number): DeviceStatus {
-  // 1 = disconnected, 2 = faulty, 3 = healthy
-  if (healthState === 1 || ageMin > 30) return "offline";
-  if (healthState === 2) return "warning";
-  if (ageMin > 10) return "warning";
+  // real_health_state según docs Huawei (huawei/01-station.md §3):
+  //   0 = desconectado, 1 = normal, 2 = alarma menor, 3 = alarma mayor.
+  if (healthState === 0 || ageMin > 30) return "offline";
+  if (healthState === 3) return "degraded";
+  if (healthState === 2 || ageMin > 10) return "warning";
   return "online";
 }
 

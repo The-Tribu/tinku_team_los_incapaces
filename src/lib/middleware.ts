@@ -181,6 +181,25 @@ export async function mw<T = unknown>(
       }
     }
 
+    // Huawei devuelve HTTP 200 con `failCode: 407` ("Login interval is too
+    // short") cuando se reautentica antes del cooldown (~10 req/hora sobre
+    // /thirdLogin). Otros failCodes transitorios: 305 (sesión expirada),
+    // 401 (token inválido). Tratamos 407 como rate-limit y 305 como reintento
+    // inmediato (el middleware re-loguea). Ver docs huawei/README.md §5.
+    if (path.startsWith("/huawei/") && parsed && typeof parsed === "object") {
+      const envelope = parsed as { success?: boolean; failCode?: number };
+      if (envelope.success === false && envelope.failCode === 407) {
+        const wait = 60;
+        if (attempt >= maxRetries) {
+          throw new MiddlewareRateLimitError(200, text, path, wait);
+        }
+        attempt++;
+        console.warn(`[mw] huawei failCode=407 on ${path} · retry ${attempt}/${maxRetries} in ${wait}s`);
+        await sleep(wait * 1000);
+        continue;
+      }
+    }
+
     if (ttl > 0) mwCache.set(key, { until: Date.now() + ttl * 1000, value: parsed });
     return parsed as T;
   }

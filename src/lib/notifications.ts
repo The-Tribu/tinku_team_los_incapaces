@@ -18,7 +18,7 @@ import type { AlarmEvent } from "./alarm-bus";
 let transporter: Transporter | null = null;
 let transporterInitFailed = false;
 
-function getTransporter(): Transporter | null {
+export function getTransporter(): Transporter | null {
   if (transporter) return transporter;
   if (transporterInitFailed) return null;
   const host = process.env.SMTP_HOST;
@@ -39,7 +39,7 @@ function getTransporter(): Transporter | null {
   return transporter;
 }
 
-function smtpFrom(): string {
+export function smtpFrom(): string {
   return process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@sunhub.local";
 }
 

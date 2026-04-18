@@ -58,5 +58,6 @@ export async function POST(req: NextRequest) {
     metrics,
     narrative,
     plant: { name: plant.name, code: plant.code, client: clientLabel },
+    defaultEmail: plant.client?.contactEmail ?? null,
   });
 }

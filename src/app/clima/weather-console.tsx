@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CloudRain,
   CloudSun,
+  Coins,
   Info,
+  MinusCircle,
   Thermometer,
   TrendingDown,
   Zap,
@@ -26,7 +28,15 @@ import { FleetMap } from "@/components/sunhub/fleet-map";
 import { KpiCard } from "@/components/sunhub/kpi-card";
 import { SectionCard } from "@/components/sunhub/section-card";
 
-type Plant = { id: string; label: string; client: string; capacityKwp: number };
+type Plant = {
+  id: string;
+  label: string;
+  client: string;
+  capacityKwp: number;
+  location?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
 type DailyRow = { date: string; ghiKwhM2: number; expectedKwhDay: number; sunriseLocal: string; sunsetLocal: string };
 type HourlyRow = { ts: string; cloudCoverPct: number; ghiWm2: number; tempC: number; expectedKwAc: number };
 
@@ -62,7 +72,7 @@ type OpsAlert = {
   impact: string;
 };
 
-function deriveAlerts(hourly: HourlyRow[]): OpsAlert[] {
+function deriveAlerts(hourly: HourlyRow[], region: string): OpsAlert[] {
   if (hourly.length === 0) return [];
   const alerts: OpsAlert[] = [];
   const within72 = hourly.slice(0, 72);
@@ -76,7 +86,7 @@ function deriveAlerts(hourly: HourlyRow[]): OpsAlert[] {
       id: "storm",
       kind: "tormenta",
       title: "Tormenta eléctrica",
-      region: "Antioquia · Cundinamarca",
+      region,
       windowLabel: d.toLocaleString("es-CO", { weekday: "short", hour: "2-digit", minute: "2-digit" }),
       impact: "Aislar inversores expuestos · verificar SPDs",
     });
@@ -86,7 +96,7 @@ function deriveAlerts(hourly: HourlyRow[]): OpsAlert[] {
       id: "rain",
       kind: "lluvia",
       title: "Lluvia moderada prolongada",
-      region: "Atlántico · Valle del Cauca",
+      region,
       windowLabel: "24-48 h",
       impact: `~${Math.round(avgCloud)}% cobertura · reprogramar mantenimiento`,
     });
@@ -96,7 +106,7 @@ function deriveAlerts(hourly: HourlyRow[]): OpsAlert[] {
       id: "cloud",
       kind: "nube",
       title: "Ventana baja radiación",
-      region: "Tolima · Huila",
+      region,
       windowLabel: "48-72 h",
       impact: `${lowGen} horas con generación esperada < 5%`,
     });
@@ -106,12 +116,36 @@ function deriveAlerts(hourly: HourlyRow[]): OpsAlert[] {
       id: "ok",
       kind: "nube",
       title: "Sin eventos críticos",
-      region: "Flota nacional",
+      region,
       windowLabel: "próximas 72 h",
       impact: "Condiciones estables · mantenimiento preventivo habilitado",
     });
   }
   return alerts;
+}
+
+// Resuelve una etiqueta de región legible a partir del plant. Preferimos
+// el `location` que viene de la BD (ya es "Cali, Valle del Cauca" o similar);
+// si no existe, aproximamos el departamento por lat/lng usando rangos coarse.
+function resolveRegion(plant: Plant | undefined): string {
+  if (!plant) return "Zona del proyecto";
+  if (plant.location && plant.location.trim()) return plant.location.trim();
+  const lat = plant.lat;
+  const lng = plant.lng;
+  if (lat == null || lng == null) return "Colombia";
+  // Rangos aproximados por departamento/región natural (suficiente para un
+  // encabezado informativo — el forecast real ya se calcula sobre lat/lng).
+  if (lat > 11) return "La Guajira";
+  if (lat > 9 && lng > -74) return "Costa Atlántica";
+  if (lat > 7 && lng < -76.5) return "Chocó · Pacífico";
+  if (lat > 6.5 && lng > -75 && lng < -73) return "Santander";
+  if (lat > 5.7 && lng > -76 && lng < -74.5) return "Antioquia";
+  if (lat > 4.3 && lat < 5.2 && lng > -74.5 && lng < -73.7) return "Cundinamarca · Bogotá";
+  if (lat > 3 && lat < 5.3 && lng > -77 && lng < -75.5) return "Valle del Cauca";
+  if (lat > 2.3 && lat < 3.3 && lng > -78 && lng < -76) return "Cauca · Nariño";
+  if (lat > 3.5 && lat < 5.2 && lng > -76 && lng < -74.5) return "Tolima · Huila";
+  if (lat > 4 && lng > -73 && lng < -69) return "Llanos Orientales";
+  return "Zona del proyecto";
 }
 
 const ALERT_STYLES: Record<OpsAlert["kind"], { border: string; bg: string; text: string; icon: React.ReactNode }> = {
@@ -206,7 +240,29 @@ export function WeatherConsole({ plants }: { plants: Plant[] }) {
     });
   }, [futureDays, hourly]);
 
-  const alerts = useMemo(() => deriveAlerts(hourly), [hourly]);
+  const region = useMemo(() => resolveRegion(plant), [plant]);
+  const alerts = useMemo(() => deriveAlerts(hourly, region), [hourly, region]);
+
+  // === Degradación por nubosidad (card nueva) ===
+  // Usamos el pronóstico horario del día de hoy + 24 h: convertimos la
+  // nubosidad promedio en un factor de pérdida sobre capacidad instalada.
+  // Formula heurística: loss% = clamp( avgCloud * 0.55, 0, 75 )
+  // (las nubes cirrus pierden poco; nubes densas degradan hasta ~75%).
+  const cloudDegradation = useMemo(() => {
+    const cap = plant?.capacityKwp ?? 0;
+    const within24 = hourly.slice(0, 24);
+    if (within24.length === 0 || cap === 0) {
+      return { avgCloudPct: 0, lossPct: 0, lostKwh: 0, lostCOP: 0, peakCloudPct: 0 };
+    }
+    const avgCloudPct = within24.reduce((s, h) => s + h.cloudCoverPct, 0) / within24.length;
+    const peakCloudPct = within24.reduce((m, h) => Math.max(m, h.cloudCoverPct), 0);
+    const lossPct = Math.max(0, Math.min(75, avgCloudPct * 0.55));
+    // Energía solar potencial en 24 h con baseline soleado (PR 0.80, 4.5 h equivalentes):
+    const baselineKwh = cap * 4.5 * 0.8;
+    const lostKwh = (baselineKwh * lossPct) / 100;
+    const lostCOP = lostKwh * TARIFF_COP_PER_KWH;
+    return { avgCloudPct, lossPct, lostKwh, lostCOP, peakCloudPct };
+  }, [hourly, plant]);
 
   return (
     <div className="space-y-6">
@@ -277,20 +333,97 @@ export function WeatherConsole({ plants }: { plants: Plant[] }) {
         />
       </div>
 
+      {/* === Degradación por nubosidad · planta seleccionada === */}
+      <SectionCard
+        title="Degradación por nubosidad"
+        subtitle={`Pérdida estimada en generación para ${plant?.label ?? "la planta seleccionada"} · próximas 24 h`}
+        actions={
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+            <MinusCircle className="h-3 w-3" />
+            Capacidad {plant?.capacityKwp ?? 0} kWp
+          </span>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-sky-700">
+              Nubosidad promedio
+            </div>
+            <div className="mt-1 flex items-baseline gap-1 font-heading text-2xl font-semibold text-sky-900">
+              {cloudDegradation.avgCloudPct.toFixed(0)}
+              <span className="text-sm font-normal text-sky-700">%</span>
+            </div>
+            <div className="text-[11px] text-sky-700/80">
+              Pico {cloudDegradation.peakCloudPct.toFixed(0)}%
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+              Pérdida esperada
+            </div>
+            <div className="mt-1 flex items-baseline gap-1 font-heading text-2xl font-semibold text-amber-900">
+              {cloudDegradation.lossPct.toFixed(1)}
+              <span className="text-sm font-normal text-amber-800">%</span>
+            </div>
+            <div className="text-[11px] text-amber-800/80">
+              vs. baseline soleado
+            </div>
+          </div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-rose-700">
+              Energía no generada
+            </div>
+            <div className="mt-1 flex items-baseline gap-1 font-heading text-2xl font-semibold text-rose-900">
+              {cloudDegradation.lostKwh.toFixed(1)}
+              <span className="text-sm font-normal text-rose-700">kWh</span>
+            </div>
+            <div className="text-[11px] text-rose-700/80">
+              24 h con condiciones actuales
+            </div>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">
+              Lucro cesante
+            </div>
+            <div className="mt-1 flex items-baseline gap-1 font-heading text-2xl font-semibold text-emerald-900">
+              {formatCOP(cloudDegradation.lostCOP)}
+            </div>
+            <div className="inline-flex items-center gap-1 text-[11px] text-emerald-800/80">
+              <Coins className="h-3 w-3" />
+              tarifa {TARIFF_COP_PER_KWH} COP/kWh
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-sky-400 via-amber-400 to-rose-500"
+            style={{ width: `${Math.min(100, cloudDegradation.lossPct)}%` }}
+          />
+        </div>
+        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+          <span>0% (cielo despejado)</span>
+          <span>75% (nubosidad máxima)</span>
+        </div>
+      </SectionCard>
+
       {/* === Mapa Colombia + Alertas operativas === */}
       <div className="grid gap-4 xl:grid-cols-3">
         <SectionCard
           title="Mapa climático de Colombia con plantas"
-          subtitle="Pronóstico cruzado con ubicación de plantas"
+          subtitle="Haz clic en un punto del mapa para cambiar la planta de referencia"
           className="xl:col-span-2"
           bodyClassName="pt-0"
         >
-          <FleetMap focusedId={plantId} />
+          <FleetMap
+            focusedId={plantId}
+            onSelectPlant={(id) => setPlantId(id)}
+            heightClass="h-[24rem]"
+          />
         </SectionCard>
 
         <SectionCard
           title="Alertas operativas (24-72h)"
-          subtitle="Ordenadas por severidad y ventana"
+          subtitle={`Región: ${region}`}
           actions={
             <button className="text-[11px] font-medium text-emerald-700 hover:underline">Ver todas</button>
           }

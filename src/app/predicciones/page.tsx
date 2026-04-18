@@ -11,6 +11,19 @@ const HEATMAP_DAYS = 7;
 const HISTORY_DAYS = 30;
 const MS_DAY = 24 * 60 * 60 * 1000;
 const CO2_FACTOR_TON_PER_KWH = 0.164 / 1000; // ton CO₂ por kWh (ver lib/reports.ts)
+// Factor de capacidad solar Colombia: radiación efectiva ~4.4 kWh/m²/día → ≈0.18
+const SOLAR_CAPACITY_FACTOR = 0.18;
+// Tarifa comercial CO 2025/26 (aproximada)
+const KWH_COP = 780;
+// Multiplicadores heurísticos por tipo de predicción:
+//   failure → apaga el inversor (24h × 100% pérdida)
+//   degradation → caída parcial (8h productivas × 30% pérdida)
+//   low_gen → caída leve (4h productivas × 15% pérdida)
+const IMPACT_BY_TYPE: Record<string, { hours: number; lossRatio: number }> = {
+  failure: { hours: 24, lossRatio: 1.0 },
+  degradation: { hours: 8, lossRatio: 0.3 },
+  low_gen: { hours: 4, lossRatio: 0.15 },
+};
 
 function toDayKey(d: Date): string {
   // YYYY-MM-DD en hora local del servidor
@@ -30,7 +43,8 @@ export default async function PrediccionesPage() {
   const me = await getSessionUser();
   const now = new Date();
 
-  const [plants, openPredictions, recentPredictions, outcomeStats, providers] = await Promise.all([
+  const historySince = new Date(now.getTime() - HISTORY_DAYS * MS_DAY);
+  const [plants, openPredictions, recentPredictions, outcomeStats, providers, historicalReadings] = await Promise.all([
     prisma.plant.findMany({
       orderBy: { name: "asc" },
       include: { client: { select: { name: true } } },
@@ -89,6 +103,8 @@ export default async function PrediccionesPage() {
       _count: { _all: true },
     }),
     prisma.provider.findMany({ select: { slug: true, displayName: true } }),
+    // Conteo real de lecturas para el subtítulo ("modelo entrenado con N lecturas").
+    prisma.reading.count({ where: { ts: { gte: historySince } } }),
   ]);
 
   // ── KPIs ─────────────────────────────────────────────────────
@@ -109,28 +125,35 @@ export default async function PrediccionesPage() {
       (r.outcome?.status === "confirmed" || r.outcome?.status === "auto_matched"),
   ).length;
 
-  // Ahorro estimado COP: heurística simple → energía potencialmente preservada
-  // (capacity * probabilidad * factor por tipo) * precio promedio kWh en COP.
-  const KWH_COP = 780; // aproximado tarifa comercial CO 2025/26
+  // Ahorro estimado COP: solo contamos predicciones *confirmadas* (el humano
+  // validó que la acción preventiva evitó la falla). Dismissed/expired no
+  // cuentan porque no representan un ahorro real.
+  //   kWh evitados = capacidad * factor_de_capacidad * horas_impacto * ratio_pérdida * prob
   const savingsCop = recentPredictions.reduce((acc, r) => {
-    if (r.outcome && r.outcome.status !== "dismissed") {
-      const cap = Number(r.device.plant.capacityKwp ?? 0);
-      const p = Number(r.probability);
-      const hoursAtRisk = r.predictedType === "failure" ? 24 : r.predictedType === "degradation" ? 8 : 4;
-      return acc + cap * p * hoursAtRisk * KWH_COP;
-    }
-    return acc;
+    const outcomeStatus = r.outcome?.status;
+    if (outcomeStatus !== "confirmed" && outcomeStatus !== "auto_matched") return acc;
+    const cap = Number(r.device.plant.capacityKwp ?? 0);
+    if (cap <= 0) return acc;
+    const impact = IMPACT_BY_TYPE[r.predictedType] ?? IMPACT_BY_TYPE.low_gen;
+    const p = Number(r.probability);
+    const kwhSaved = cap * SOLAR_CAPACITY_FACTOR * impact.hours * impact.lossRatio * p;
+    return acc + kwhSaved * KWH_COP;
   }, 0);
 
-  // Tiempo promedio de anticipación (días entre predicción y outcome decidido)
-  // Usamos daysToEvent como proxy cuando exista — mockup muestra "3.2 días".
-  // Aproximación: promedio de probabilidad alta sobre ventana de 3/7/14 días.
+  // Anticipación media: días entre la predicción y la fecha estimada del evento,
+  // solo sobre predicciones abiertas con daysToEvent explícito (no inventamos).
   const avgLead = (() => {
-    const sample = openPredictions.filter((r) => r.probability && Number(r.probability) >= 0.4);
+    const sample = openPredictions.filter(
+      (r) => r.daysToEvent != null && Number(r.daysToEvent) > 0,
+    );
     if (sample.length === 0) return null;
-    const total = sample.reduce((a, r) => a + (r.daysToEvent ? Number(r.daysToEvent) : 5), 0);
+    const total = sample.reduce((a, r) => a + Number(r.daysToEvent), 0);
     return total / sample.length;
   })();
+
+  // Dispositivos únicos con al menos una predicción abierta (métrica real,
+  // sin recortar a las 40 priorizadas para UI).
+  const devicesAtRisk = new Set(openPredictions.map((r) => r.device.id)).size;
 
   // ── Heatmap (plantas × próximos 7 días) ──────────────────────
   const heatmapDays: { key: string; label: string; date: string }[] = [];
@@ -239,12 +262,10 @@ export default async function PrediccionesPage() {
     .sort((a, b) => b.probability - a.probability)
     .slice(0, 40);
 
-  const totalDevicesAtRisk = new Set(prioritized.map((r) => r.deviceExternalId)).size;
-
   return (
     <AppShell
       title="Alertas predictivas"
-      subtitle={`IA detectó ${totalDevicesAtRisk} dispositivos con riesgo de falla en los próximos 7 días · modelo entrenado con ${(recentPredictions.length * 1000).toLocaleString("es-CO")} lecturas históricas`}
+      subtitle={`IA detectó ${devicesAtRisk} dispositivo${devicesAtRisk === 1 ? "" : "s"} con riesgo de falla en los próximos 7 días · ${historicalReadings.toLocaleString("es-CO")} lecturas históricas analizadas`}
     >
       <PredictionsConsole
         canRun={canWrite(me)}

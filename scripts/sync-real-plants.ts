@@ -72,7 +72,27 @@ async function fetchGrowatt() {
   }
 }
 
-async function upsertProvider(slug: "deye" | "growatt", displayName: string) {
+/**
+ * Pull Huawei FusionSolar stations via el endpoint v2 `/thirdData/stations`
+ * (paginado, capacity en kW). Si el upstream rate-limita (failCode=407) el
+ * middleware ya reintenta — acá sólo tragamos el error y devolvemos vacío
+ * para no bloquear el resto del sync.
+ */
+async function fetchHuawei() {
+  try {
+    const res = await mw<unknown>(
+      "/huawei/thirdData/stations",
+      { method: "POST", body: JSON.stringify({ pageNo: 1 }) },
+      { cacheTtlSec: PLANTS_TTL_SEC },
+    );
+    return providers.huawei.plantsList(res);
+  } catch (err) {
+    console.warn(`[huawei] stations failed: ${(err as Error).message.slice(0, 120)}`);
+    return [];
+  }
+}
+
+async function upsertProvider(slug: "deye" | "growatt" | "huawei", displayName: string) {
   const existing = await prisma.provider.findUnique({ where: { slug } });
   return existing ?? prisma.provider.create({ data: { slug, displayName } });
 }
@@ -80,12 +100,19 @@ async function upsertProvider(slug: "deye" | "growatt", displayName: string) {
 export async function syncRealPlants() {
   const started = Date.now();
   console.log("[plants-sync] middleware:", process.env.MIDDLEWARE_BASE_URL);
-  const [deyeProvider, growattProvider] = await Promise.all([
+  const [deyeProvider, growattProvider, huaweiProvider] = await Promise.all([
     upsertProvider("deye", "DeyeCloud"),
     upsertProvider("growatt", "Growatt"),
+    upsertProvider("huawei", "Huawei FusionSolar"),
   ]);
-  const [deyeStations, growattPlants] = await Promise.all([fetchDeye(), fetchGrowatt()]);
-  console.log(`[plants-sync] Deye → ${deyeStations.length} stations · Growatt → ${growattPlants.length} plants`);
+  const [deyeStations, growattPlants, huaweiPlants] = await Promise.all([
+    fetchDeye(),
+    fetchGrowatt(),
+    fetchHuawei(),
+  ]);
+  console.log(
+    `[plants-sync] Deye → ${deyeStations.length} stations · Growatt → ${growattPlants.length} plants · Huawei → ${huaweiPlants.length} stations`,
+  );
 
   let client = await prisma.client.findFirst({ where: { name: "Techos Rentables (real)" } });
   if (!client) {
@@ -117,6 +144,16 @@ export async function syncRealPlants() {
     ...growattPlants.map((p) => ({
       providerId: growattProvider.id,
       slug: "growatt",
+      externalId: p.external_id,
+      name: p.name,
+      lat: p.lat,
+      lng: p.lng,
+      capacityKwp: p.capacity_kwp,
+      location: p.location,
+    })),
+    ...huaweiPlants.map((p) => ({
+      providerId: huaweiProvider.id,
+      slug: "huawei",
       externalId: p.external_id,
       name: p.name,
       lat: p.lat,

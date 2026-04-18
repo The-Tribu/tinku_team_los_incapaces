@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   AlarmClock,
@@ -21,11 +22,13 @@ import {
   ThumbsUp,
   TrendingUp,
   Wand2,
+  X,
   Zap,
 } from "lucide-react";
 import { BrandChip } from "@/components/sunhub/brand-chip";
 import { KpiCard } from "@/components/sunhub/kpi-card";
 import { MetricBar } from "@/components/sunhub/metric-bar";
+import { PlantPicker } from "@/components/sunhub/plant-picker";
 import { SectionCard } from "@/components/sunhub/section-card";
 import { Sparkline } from "@/components/sunhub/sparkline";
 import { cn } from "@/lib/cn";
@@ -87,6 +90,18 @@ type Kpis = {
 };
 
 type FilterKind = "all" | "high-risk" | "alarm" | "anomaly" | "scheduled";
+
+type BulkJobState = {
+  id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  totalCount: number;
+  processedCount: number;
+  successCount: number;
+  failedCount: number;
+  totalPredictions: number;
+  currentPlant: string | null;
+  error: string | null;
+};
 
 // ── Utilidades visuales ───────────────────────────────────────
 const TRIGGER_META: Record<PrioritizedRow["triggerKind"], { label: string; icon: React.ReactNode; badge: string }> = {
@@ -203,7 +218,11 @@ export function PredictionsConsole({
   const [selectedPlant, setSelectedPlant] = useState<string>(plants[0]?.id ?? "");
   const [selectedId, setSelectedId] = useState<string | null>(prioritized[0]?.id ?? null);
   const [loading, setLoading] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkJob, setBulkJob] = useState<BulkJobState | null>(null);
+  const [bulkSummary, setBulkSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setRows(prioritized);
@@ -314,6 +333,97 @@ export function PredictionsConsole({
     }
   };
 
+  const bulkLoading = bulkJob?.status === "pending" || bulkJob?.status === "running";
+
+  // Dispara el job en el server y empieza a polear su estado cada 3s.
+  // El request POST retorna inmediato con { jobId } — el trabajo real corre
+  // en background, así que el usuario puede navegar y volver sin perder
+  // progreso (el JobsIndicator en el header sigue viéndolo).
+  const startBulkRun = async () => {
+    setBulkConfirmOpen(false);
+    setBulkSummary(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/predictions/run-all", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) {
+        // Si ya había uno corriendo, engancha el polling al existente.
+        if (res.status === 409 && j.jobId) {
+          pollBulkJob(j.jobId);
+          return;
+        }
+        throw new Error(j.error ?? "Error al iniciar la corrida masiva");
+      }
+      setBulkJob({
+        id: j.jobId,
+        status: "pending",
+        totalCount: j.totalCount ?? 0,
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        totalPredictions: 0,
+        currentPlant: null,
+        error: null,
+      });
+      pollBulkJob(j.jobId);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const pollBulkJob = (jobId: string) => {
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    const step = async () => {
+      try {
+        const res = await fetch(`/api/predictions/run-all/${jobId}`, { cache: "no-store" });
+        if (!res.ok) throw new Error();
+        const j = (await res.json()) as BulkJobState;
+        setBulkJob(j);
+        if (j.status === "completed" || j.status === "failed") {
+          const summary =
+            j.status === "completed"
+              ? `Procesadas ${j.successCount} plantas · ${j.totalPredictions} predicciones generadas${j.failedCount ? ` · ${j.failedCount} fallaron` : ""}`
+              : `La corrida falló: ${j.error ?? "todas las plantas fallaron"}`;
+          setBulkSummary(summary);
+          await reloadRows();
+          return;
+        }
+        pollTimerRef.current = setTimeout(step, 3000);
+      } catch {
+        pollTimerRef.current = setTimeout(step, 5000);
+      }
+    };
+    step();
+  };
+
+  // Al montar, si el usuario vuelve desde otra página y hay un job activo
+  // lo re-engancha automáticamente para que el banner local aparezca.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/predictions/jobs?active=1&limit=1", { cache: "no-store" });
+        const j = await res.json();
+        if (cancelled || !j.jobs?.length) return;
+        const existing = j.jobs[0] as BulkJobState;
+        setBulkJob(existing);
+        pollBulkJob(existing.id);
+      } catch {
+        /* no-op */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const runAllPredictions = () => {
+    if (bulkLoading) return;
+    setBulkConfirmOpen(true);
+  };
+
   const submitFeedback = async (predictionId: string, status: "confirmed" | "dismissed") => {
     try {
       const r = await fetch(`/api/outcomes/${predictionId}`, {
@@ -336,12 +446,35 @@ export function PredictionsConsole({
         selectedPlant={selectedPlant}
         setSelectedPlant={setSelectedPlant}
         runPrediction={runPrediction}
+        runAllPredictions={runAllPredictions}
         reload={reloadRows}
         loading={loading}
+        bulkLoading={bulkLoading}
       />
 
+      {bulkLoading && bulkJob ? <BulkProgressBanner job={bulkJob} /> : null}
+      {bulkSummary && !bulkLoading ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+          <span>{bulkSummary}</span>
+          <button
+            type="button"
+            onClick={() => setBulkSummary(null)}
+            className="rounded-md p-1 text-emerald-600 hover:bg-emerald-100"
+            aria-label="Ocultar"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : null}
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>
+      ) : null}
+
+      {bulkConfirmOpen ? (
+        <BulkConfirmModal
+          onClose={() => setBulkConfirmOpen(false)}
+          onConfirm={startBulkRun}
+        />
       ) : null}
 
       {/* 1. Fila de KPIs */}
@@ -473,43 +606,61 @@ function HeaderBar({
   selectedPlant,
   setSelectedPlant,
   runPrediction,
+  runAllPredictions,
   reload,
   loading,
+  bulkLoading,
 }: {
   canRun: boolean;
   plants: Plant[];
   selectedPlant: string;
   setSelectedPlant: (id: string) => void;
   runPrediction: () => void;
+  runAllPredictions: () => void;
   reload: () => void;
   loading: boolean;
+  bulkLoading: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div>
-        <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500">Planta</label>
-        <select
+      <div className="w-80">
+        <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500">
+          Planta
+        </label>
+        <PlantPicker
+          className="mt-1"
+          plants={plants}
           value={selectedPlant}
-          onChange={(e) => setSelectedPlant(e.target.value)}
-          className="mt-1 h-10 w-72 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-        >
-          {plants.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.code} · {p.name}
-            </option>
-          ))}
-        </select>
+          onChange={setSelectedPlant}
+          placeholder="Buscar planta…"
+        />
       </div>
       {canRun ? (
-        <button
-          type="button"
-          onClick={runPrediction}
-          disabled={loading || !selectedPlant}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-          Correr predicción
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={runPrediction}
+            disabled={loading || bulkLoading || !selectedPlant}
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            Correr predicción
+          </button>
+          <button
+            type="button"
+            onClick={runAllPredictions}
+            disabled={loading || bulkLoading}
+            title="Ejecuta la predicción sobre cada planta activa (con lecturas en los últimos 7 días)"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+          >
+            {bulkLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {bulkLoading ? "Procesando plantas…" : "Correr en todas"}
+          </button>
+        </>
       ) : null}
       <button
         type="button"
@@ -1035,4 +1186,122 @@ function buildEvidence(row: PrioritizedRow): { label: string; weight: number; to
     bag.push({ label: "Confianza del modelo", weight: Math.max(0.1, Math.min(1, row.confidence)), tone: "primary" });
   }
   return bag;
+}
+
+// ── Modal + banner de corrida masiva ─────────────────────────
+function ModalPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
+function BulkConfirmModal({
+  onClose,
+  onConfirm,
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-heading text-base font-semibold text-slate-900">
+                  Correr predicción en todas las plantas
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Procesará cada planta activa (con lecturas en los últimos 7 días).
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <ul className="space-y-1.5 rounded-xl bg-slate-50 p-3 text-[12px] text-slate-700">
+            <li className="flex items-start gap-2">
+              <BrainCircuit className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              Un request a MiniMax por planta — puede tardar varios minutos.
+            </li>
+            <li className="flex items-start gap-2">
+              <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-600" />
+              Corre en background: puedes navegar a otras secciones.
+            </li>
+            <li className="flex items-start gap-2">
+              <Bell className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              Te avisaremos cuando termine con una notificación en el header.
+            </li>
+          </ul>
+
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Iniciar corrida
+            </button>
+          </div>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
+function BulkProgressBanner({ job }: { job: BulkJobState }) {
+  const pct = job.totalCount ? Math.round((job.processedCount / job.totalCount) * 100) : 0;
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 font-semibold">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+          Corriendo predicciones en todas las plantas…
+        </div>
+        <div className="tabular-nums text-emerald-800">
+          {job.processedCount}/{job.totalCount} · {pct}%
+        </div>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-emerald-100">
+        <div
+          className="h-full rounded-full bg-emerald-500 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[11px] text-emerald-700">
+        <span className="truncate">
+          {job.currentPlant ? `→ ${job.currentPlant}` : "Preparando…"}
+        </span>
+        <span>
+          {job.totalPredictions} predicciones · {job.failedCount > 0 ? `${job.failedCount} fallos` : "sin fallos"}
+        </span>
+      </div>
+    </div>
+  );
 }
