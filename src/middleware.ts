@@ -6,9 +6,13 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "sunhub_session";
 
 // Rutas que NO requieren sesión. Todo lo demás redirige a /login si no hay cookie.
+// El landing /deye-demo y sus endpoints son públicos porque el scraper los
+// consulta sin credenciales — emula un portal externo scrapeable.
 const PUBLIC_PATHS = [
   "/login",
   "/api/auth/login",
+  "/deye-demo",
+  "/api/deye-demo",
 ];
 
 function isPublic(pathname: string) {

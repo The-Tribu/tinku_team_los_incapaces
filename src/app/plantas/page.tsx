@@ -6,6 +6,7 @@ import { KpiCard } from "@/components/sunhub/kpi-card";
 import { MetricBar } from "@/components/sunhub/metric-bar";
 import { Sparkline } from "@/components/sunhub/sparkline";
 import { StatusBadge } from "@/components/sunhub/status-badge";
+import { LiveRefresh } from "@/components/sunhub/live-refresh";
 import { displayClientLabel } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
 import { PlantFilters } from "./_components/plant-filters";
@@ -213,7 +214,8 @@ export default async function PlantsPage({
       title="Plantas solares"
       subtitle={`${counts.total} instalaciones activas`}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <LiveRefresh intervalMs={30_000} />
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"

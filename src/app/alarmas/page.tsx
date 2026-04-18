@@ -1,7 +1,6 @@
 import { AppShell } from "@/components/sunhub/app-shell";
 import { prisma } from "@/lib/prisma";
-import { canWrite, getSessionUser } from "@/lib/auth";
-import { MockAlarmTrigger } from "./mock-alarm-trigger";
+import { getSessionUser } from "@/lib/auth";
 import { AlarmsCenter, type AlarmItem, type AlarmReadingPoint } from "./alarms-center";
 
 export const dynamic = "force-dynamic";
@@ -56,14 +55,6 @@ export default async function AlarmsPage({
   }
 
   const user = await getSessionUser();
-  const showMockTrigger = canWrite(user);
-  const mockPlants = showMockTrigger
-    ? await prisma.plant.findMany({
-        orderBy: [{ code: "asc" }],
-        select: { id: true, code: true, name: true },
-        take: 50,
-      })
-    : [];
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -240,12 +231,6 @@ export default async function AlarmsPage({
       title="Centro de Alarmas"
       subtitle={`${countNew + countAssigned} abiertas · ${openCritical} críticas · SLA ${slaPct.toFixed(1)}%`}
     >
-      {showMockTrigger ? (
-        <div className="mb-4">
-          <MockAlarmTrigger plants={mockPlants} />
-        </div>
-      ) : null}
-
       <AlarmsCenter
         items={items}
         selectedId={selectedId}

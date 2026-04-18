@@ -180,7 +180,8 @@ export async function tick() {
   let skipped = 0;
   for (const d of devices) {
     const slug = d.provider.slug as ProviderSlug;
-    if (!(slug in providers)) {
+    // deye_demo lo maneja scrape-deye-demo.ts — aquí se omite.
+    if (d.provider.slug === "deye_demo" || !(slug in providers)) {
       skipped++;
       continue;
     }
