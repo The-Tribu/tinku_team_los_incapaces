@@ -48,55 +48,91 @@
 git clone <repo-url>
 cd tinku_team_los_incapaces
 cp .env.example .env.local
-# editar .env.local con las keys reales
+# editar .env.local con las keys reales (MIDDLEWARE_API_KEY, MINIMAX_API_KEY)
 ```
 
-### 3. Base de datos
+### 3. Quickstart con Make (recomendado)
+
+Un solo comando levanta todo: instala deps, Postgres local (docker),
+Mailpit (SMTP), aplica schema, arranca Next.js + cron worker en paralelo.
 
 ```bash
-docker run --name sunhub-pg \
-  -e POSTGRES_PASSWORD=sunhub \
-  -e POSTGRES_DB=sunhub \
-  -p 5432:5432 -d postgres:15
+make up            # bootstrap + dev server + cron
+# ó
+make up-demo       # igual + siembra planta demo TR-001 (sin depender del middleware)
 ```
 
-Agregar a `.env.local`:
-```
-DATABASE_URL=postgresql://postgres:sunhub@localhost:5432/sunhub
+Ctrl+C detiene ambos procesos.
+
+Crear el primer usuario admin:
+```bash
+make create-user EMAIL=admin@sunhub.co PASSWORD=admin123 ROLE=admin NAME=Admin
 ```
 
-### 4. Instalar dependencias y migrar
+### 4. Comandos Make disponibles
 
 ```bash
-npm install
-npx prisma migrate dev
+make help          # lista todos los targets
 ```
 
-### 5. Correr en desarrollo
+| Grupo       | Target              | Qué hace                                                      |
+|-------------|---------------------|---------------------------------------------------------------|
+| **Setup**   | `install`           | `npm install`                                                 |
+|             | `bootstrap`         | install + db-up + smtp-up + db-push                           |
+|             | `up`                | bootstrap + dev + cron en paralelo                            |
+|             | `up-demo`           | `up` + seed de Planta Robert (TR-001)                         |
+| **DB**      | `db-up`             | Levanta Postgres local (docker `sunhub-pg`)                   |
+|             | `db-down`           | Detiene Postgres                                              |
+|             | `db-reset`          | Elimina contenedor + volumen                                  |
+|             | `db-push`           | `prisma db push` (aplica schema)                              |
+|             | `db-generate`       | `prisma generate`                                             |
+|             | `db-studio`         | Abre Prisma Studio                                            |
+| **SMTP**    | `smtp-up`           | Mailpit local (SMTP:1025 · UI http://localhost:8025)          |
+|             | `smtp-down`         | Detiene Mailpit                                               |
+|             | `smtp-reset`        | Elimina contenedor                                            |
+| **Datos**   | `plants-sync`       | Sincroniza plantas reales desde el middleware                 |
+|             | `ingest`            | Tick único del worker de ingestión                            |
+|             | `alarms`            | Tick único del worker de alarmas                              |
+|             | `cron`              | Levanta el worker con cron (ingest + alarms + plants-sync)    |
+|             | `data-reset`        | Reset operacional (preserva usuarios) · `YES=1` sin prompt    |
+|             | `seed-robert`       | Siembra planta demo TR-001 con lecturas/predicciones/alarmas  |
+|             | `seed-robert-reset` | Igual pero limpia datos previos de TR-001                     |
+| **App**     | `dev`               | Next.js (localhost:3000)                                      |
+|             | `build`             | Build de producción                                           |
+|             | `start`             | Next.js modo producción                                       |
+|             | `lint`              | Linter                                                        |
+|             | `clean`             | Limpia `.next/` y caches                                      |
+| **Usuarios**| `create-user`       | `EMAIL=... PASSWORD=... [ROLE=admin] [NAME=...]`              |
+| **MW**      | `mw-ping`           | Health-check del middleware Tinku                             |
+|             | `smoke-deye`        | Smoke test 18 endpoints Deye · `STATION_ID=... DEVICE_SN=...` |
+
+### 5. Scripts npm adicionales (sin Make)
 
 ```bash
-npm run dev
-```
-
-Abrir [http://localhost:3000](http://localhost:3000).
-
-### 6. Worker de ingestión (terminal aparte)
-
-```bash
-npm run ingest
-```
-
-### 7. Scraper DeyeCloud demo (opcional)
-
-Emula la integración con un proveedor sin API oficial: scrapea la landing
-`/deye-demo` y persiste las lecturas por la misma pipeline canónica.
-
-```bash
+# Scraper DeyeCloud demo — emula provider sin API oficial
 npm run scrape:deye:pw            # headless, continuo (cada SCRAPE_INTERVAL_MS)
 npm run scrape:deye:pw -- --once  # un solo tick y sale
 npm run scrape:deye:pw:headed     # browser visible (debug)
-npm run scrape:deye                # variante via HTTP (sin Playwright)
+npm run scrape:deye               # variante HTTP (sin Playwright)
+npm run pw:install                # instala Chromium para Playwright
+
+# Baselines de generación esperada (baseline vs real para PR)
+npm run baselines
 ```
+
+### 6. Setup manual (sin Make)
+
+Si prefieres no usar Make:
+
+```bash
+npm install
+docker run --name sunhub-pg -e POSTGRES_PASSWORD=sunhub -p 5432:5432 -d postgres:15
+npx prisma db push
+npm run plants:sync       # opcional: plantas reales desde el middleware
+npm run dev               # en otra terminal: npm run cron
+```
+
+Abrir [http://localhost:3000](http://localhost:3000).
 
 ---
 
