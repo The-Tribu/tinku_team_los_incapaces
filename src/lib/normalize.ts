@@ -188,6 +188,92 @@ function normalizeDeyeStationData(externalId: string, resp: unknown): CanonicalR
   };
 }
 
+// ─── Huawei FusionSolar ────────────────────────────────────────
+//
+// Endpoints usados:
+//   POST /huawei/thirdData/stations          → lista paginada
+//   POST /huawei/thirdData/getStationRealKpi → datos en tiempo real
+//
+// `dataItemMap` trae: day_power, month_power, total_power, day_income,
+// total_income, day_on_grid_energy, day_use_energy, real_health_state
+// (1=disconnected, 2=faulty, 3=healthy).
+
+type HuaweiEnvelope<T> = {
+  success?: boolean;
+  failCode?: number;
+  message?: string | null;
+  data?: T;
+};
+
+type HuaweiStation = {
+  stationCode: string;
+  stationName?: string;
+  stationAddr?: string;
+  capacity?: number; // kWp
+  latitude?: number;
+  longitude?: number;
+  buildState?: string;
+  combineType?: string;
+  aidType?: number;
+};
+
+type HuaweiStationRealKpi = {
+  stationCode: string;
+  dataItemMap?: {
+    day_power?: number;
+    month_power?: number;
+    total_power?: number;
+    day_income?: number;
+    total_income?: number;
+    day_on_grid_energy?: number;
+    day_use_energy?: number;
+    real_health_state?: number;
+  };
+};
+
+function normalizeHuaweiStationList(resp: unknown): CanonicalPlant[] {
+  const r = resp as HuaweiEnvelope<HuaweiStation[] | { list?: HuaweiStation[] }> | null;
+  if (!r) return [];
+  const list = Array.isArray(r.data) ? r.data : (r.data as { list?: HuaweiStation[] })?.list;
+  if (!Array.isArray(list)) return [];
+  return list.map((s) => ({
+    external_id: s.stationCode,
+    name: s.stationName ?? `Huawei ${s.stationCode}`,
+    location: s.stationAddr ?? undefined,
+    lat: num(s.latitude),
+    lng: num(s.longitude),
+    capacity_kwp: num(s.capacity),
+  }));
+}
+
+function huaweiStatusFrom(healthState: number | undefined, ageMin: number): DeviceStatus {
+  // 1 = disconnected, 2 = faulty, 3 = healthy
+  if (healthState === 1 || ageMin > 30) return "offline";
+  if (healthState === 2) return "warning";
+  if (ageMin > 10) return "warning";
+  return "online";
+}
+
+function normalizeHuaweiStationData(externalId: string, resp: unknown): CanonicalReading | null {
+  const r = resp as HuaweiEnvelope<HuaweiStationRealKpi[]> | null;
+  if (!r || r.success === false) return null;
+  const item = Array.isArray(r.data) ? r.data.find((d) => d.stationCode === externalId) ?? r.data[0] : undefined;
+  if (!item || !item.dataItemMap) return null;
+  const d = item.dataItemMap;
+  const ts = new Date().toISOString();
+  // `day_power` viene en kWh acumulados del día. No tenemos potencia instantánea
+  // directa; para generarla aproximamos con 0 si day_power=0 y dejamos que la
+  // lectura alimente el contador energético. En siguientes iteraciones puede
+  // consumirse /getDevRealKpi para potencia instantánea real.
+  return {
+    device_external_id: externalId,
+    power_ac_kw: 0,
+    energy_kwh: num(d.day_power),
+    status: huaweiStatusFrom(d.real_health_state, 0),
+    ts,
+  };
+}
+
 // ─── Registry ───────────────────────────────────────────────────
 
 export const providers = {
@@ -202,6 +288,12 @@ export const providers = {
     displayName: "DeyeCloud",
     plantsList: normalizeDeyeStationList,
     plantReading: normalizeDeyeStationData,
+  },
+  huawei: {
+    slug: "huawei" as const,
+    displayName: "Huawei FusionSolar",
+    plantsList: normalizeHuaweiStationList,
+    plantReading: normalizeHuaweiStationData,
   },
 };
 

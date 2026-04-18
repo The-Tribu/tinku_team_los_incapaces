@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canWrite, getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { predictForPlant } from "@/lib/predictions";
 
@@ -34,6 +35,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getSessionUser();
+  if (!canWrite(me)) {
+    return NextResponse.json({ error: "Tu rol no permite ejecutar predicciones" }, { status: 403 });
+  }
+
   const body = (await req.json().catch(() => ({}))) as { plantId?: string };
   if (!body.plantId) return NextResponse.json({ error: "plantId required" }, { status: 400 });
   const plant = await prisma.plant.findUnique({ where: { id: body.plantId } });

@@ -5,12 +5,7 @@
  * Usage:
  *   npm run plants:sync
  *
- * What it does:
- *  1) Deye: POST /deye/v1.0/station/list  → 6 real Colombian stations
- *  2) Growatt: GET /growatt/v1/plant/list  (gracefully degrades if rate-limited)
- *     + probes plant_id=1356131 (Bavaria Tibitó) via plant/data
- *  3) Creates a "Real Clients" bucket per station, plant, and a single device row.
- *  4) Marks existing seed plants as synthetic so they can be filtered in the UI.
+ * Exports `syncRealPlants()` so the cron worker can reuse it.
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -25,11 +20,9 @@ for (const f of [".env.local", ".env"]) {
   }
 }
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../src/lib/prisma";
 import { mw } from "../src/lib/middleware";
 import { providers } from "../src/lib/normalize";
-
-const prisma = new PrismaClient();
 
 async function fetchDeye() {
   const res = await mw<{ stationList?: unknown[] }>("/deye/v1.0/station/list", {
@@ -73,15 +66,15 @@ async function upsertProvider(slug: "deye" | "growatt", displayName: string) {
   return existing ?? prisma.provider.create({ data: { slug, displayName } });
 }
 
-async function main() {
-  console.log("→ Middleware base:", process.env.MIDDLEWARE_BASE_URL);
+export async function syncRealPlants() {
+  const started = Date.now();
+  console.log("[plants-sync] middleware:", process.env.MIDDLEWARE_BASE_URL);
   const [deyeProvider, growattProvider] = await Promise.all([
     upsertProvider("deye", "DeyeCloud"),
     upsertProvider("growatt", "Growatt"),
   ]);
   const [deyeStations, growattPlants] = await Promise.all([fetchDeye(), fetchGrowatt()]);
-  console.log(`Deye → ${deyeStations.length} stations`);
-  console.log(`Growatt → ${growattPlants.length} plants`);
+  console.log(`[plants-sync] Deye → ${deyeStations.length} stations · Growatt → ${growattPlants.length} plants`);
 
   let client = await prisma.client.findFirst({ where: { name: "Techos Rentables (real)" } });
   if (!client) {
@@ -122,6 +115,8 @@ async function main() {
     })),
   ];
 
+  let created = 0;
+  let updated = 0;
   for (const row of plan) {
     const code = `RE-${row.slug.slice(0, 3).toUpperCase()}-${row.externalId}`;
     let plant = await prisma.plant.findUnique({ where: { code } });
@@ -138,7 +133,7 @@ async function main() {
           contractType: "real",
         },
       });
-      console.log(`  + plant created ${code} · ${row.name}`);
+      created++;
     } else {
       await prisma.plant.update({
         where: { id: plant.id },
@@ -150,7 +145,7 @@ async function main() {
           capacityKwp: row.capacityKwp ?? null,
         },
       });
-      console.log(`  ~ plant refreshed ${code}`);
+      updated++;
     }
     const device = await prisma.device.findUnique({
       where: { providerId_externalId: { providerId: row.providerId, externalId: row.externalId } },
@@ -165,17 +160,20 @@ async function main() {
           currentStatus: "offline",
         },
       });
-      console.log(`    + device ${row.externalId}`);
     }
   }
 
-  const summary = await prisma.plant.groupBy({ by: ["contractType"], _count: true });
-  console.log("\nPlantas por tipo:", summary);
-  await prisma.$disconnect();
+  const dur = Date.now() - started;
+  console.log(`[plants-sync] done · created=${created} updated=${updated} · ${dur}ms`);
+  return { created, updated, total: plan.length };
 }
 
-main().catch(async (err) => {
-  console.error(err);
-  await prisma.$disconnect();
-  process.exit(1);
-});
+// CLI mode
+if (import.meta.url === `file://${process.argv[1]}`) {
+  syncRealPlants()
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

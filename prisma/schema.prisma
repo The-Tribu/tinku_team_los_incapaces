@@ -11,6 +11,36 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ── Autenticación y usuarios ──────────────────────────────────
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  role         String    @default("viewer") // admin | ops | viewer
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+  sessions     Session[]
+  notificationPreference NotificationPreference?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
 // ── Comercial ─────────────────────────────────────────────────
 model Client {
   id           String    @id @default(uuid()) @db.Uuid
@@ -121,21 +151,58 @@ model Contract {
 
 // ── Alarmas y predicciones ────────────────────────────────────
 model Alarm {
-  id            String    @id @default(uuid()) @db.Uuid
-  deviceId      String    @map("device_id") @db.Uuid
-  severity      String // critical | warning | info
-  type          String // offline | frequency | voltage | low_gen | temperature
-  message       String
-  startedAt     DateTime  @default(now()) @map("started_at")
-  resolvedAt    DateTime? @map("resolved_at")
-  assignee      String?
-  aiSuggestion  String?   @map("ai_suggestion")
+  id               String    @id @default(uuid()) @db.Uuid
+  deviceId         String    @map("device_id") @db.Uuid
+  severity         String // critical | warning | info
+  type             String // offline | frequency | voltage | low_gen | temperature | provider
+  source           String    @default("rule") @map("source") // rule | deye | growatt | huawei
+  providerAlarmKey String?   @map("provider_alarm_key") // id nativo del proveedor cuando source != rule
+  message          String
+  startedAt        DateTime  @default(now()) @map("started_at")
+  resolvedAt       DateTime? @map("resolved_at")
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  acknowledgedBy   String?   @map("acknowledged_by") @db.Uuid
+  notifiedAt       DateTime? @map("notified_at") // última vez que salió fanout
+  assignee         String?
+  aiSuggestion     String?   @map("ai_suggestion")
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
+  @@unique([deviceId, source, providerAlarmKey], name: "alarms_device_source_key")
   @@index([deviceId, startedAt(sort: Desc)])
   @@index([resolvedAt])
+  @@index([severity, startedAt(sort: Desc)])
   @@map("alarms")
+}
+
+// ── Notificaciones ────────────────────────────────────────────
+model NotificationPreference {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  emailEnabled      Boolean  @default(true) @map("email_enabled")
+  browserEnabled    Boolean  @default(true) @map("browser_enabled")
+  soundEnabled      Boolean  @default(true) @map("sound_enabled")
+  minSeverity       String   @default("warning") @map("min_severity") // critical | warning | info
+  cooldownMinutes   Int      @default(10) @map("cooldown_minutes")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model NotificationLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  alarmId   String   @map("alarm_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  channel   String // email | browser | sse
+  status    String // sent | skipped | failed
+  detail    String?
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@index([alarmId, sentAt(sort: Desc)])
+  @@index([userId, sentAt(sort: Desc)])
+  @@map("notification_logs")
 }
 
 model Prediction {

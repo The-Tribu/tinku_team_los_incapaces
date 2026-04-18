@@ -1,17 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * Polling worker that pulls readings from the middleware and persists
- * them to Postgres via Prisma.
+ * Ingestion tick — pulls readings from the middleware for every device in
+ * the DB and persists them to Postgres. Only real data from the provider
+ * is stored; if a provider response is unparseable, the reading is skipped.
  *
- * Run with: npm run ingest
+ * Usage:
+ *   npm run ingest           # run a single tick (one-shot)
+ *   npm run cron             # schedule this tick on a recurring cron
  *
- * Behaviour:
- *   - Reads all Plants from the DB together with their Provider.
- *   - For each plant, hits the provider's reading endpoint.
- *   - Normalizes the response → CanonicalReading.
- *   - Upserts a single virtual "plant-level" device per plant (since the
- *     sandbox only exposes plant-level aggregates reliably), then writes
- *     a Reading row and a best-effort rules pass for alarm creation.
+ * This module exports `tick()` so the cron worker can reuse it without
+ * spawning a subprocess.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -38,20 +36,7 @@ import { prisma } from "../lib/prisma";
 import { mw, MiddlewareError } from "../lib/middleware";
 import { providers, type ProviderSlug, type CanonicalReading } from "../lib/normalize";
 import { readingEndpoint } from "../lib/providers";
-import { syntheticReading } from "../lib/synthetic";
 import { evaluateRules } from "../lib/rules";
-
-const POLL_INTERVAL_MS = Number(process.env.INGEST_INTERVAL_MS ?? 60_000);
-const ONESHOT = process.argv.includes("--once");
-// When set, synthesize readings whenever the provider response is
-// unparseable (e.g. the middleware currently returns encrypted Growatt
-// payloads). Defaults to true in non-production so the demo is live.
-const ALLOW_SYNTHETIC =
-  process.env.INGEST_SYNTHETIC === "0"
-    ? false
-    : process.env.INGEST_SYNTHETIC === "1"
-      ? true
-      : process.env.NODE_ENV !== "production";
 
 async function fetchReading(
   slug: ProviderSlug,
@@ -108,36 +93,26 @@ async function persist(device: DeviceRow, reading: CanonicalReading) {
   ]);
 }
 
-async function tick() {
+export async function tick() {
   const started = Date.now();
   const devices = await prisma.device.findMany({
     include: { provider: true, plant: { select: { capacityKwp: true } } },
   });
   if (devices.length === 0) {
-    console.log("[ingest] no devices in DB — run `npm run db:seed` first");
-    return;
+    console.log("[ingest] no devices in DB — run `make plants-sync` to pull real plants from the middleware");
+    return { ok: 0, fail: 0, skipped: 0 };
   }
 
-  let realOk = 0;
-  let synthOk = 0;
+  let ok = 0;
   let fail = 0;
+  let skipped = 0;
   for (const d of devices) {
     const slug = d.provider.slug as ProviderSlug;
     if (!(slug in providers)) {
-      fail++;
+      skipped++;
       continue;
     }
-    let reading = await fetchReading(slug, d.externalId);
-    let source: "real" | "synthetic" = "real";
-    if (!reading && ALLOW_SYNTHETIC) {
-      const plant = await prisma.plant.findUnique({ where: { id: d.plantId } });
-      reading = syntheticReading({
-        externalId: d.externalId,
-        capacityKwp: Number(plant?.capacityKwp ?? 100),
-        forcedStatus: d.currentStatus as never,
-      });
-      source = "synthetic";
-    }
+    const reading = await fetchReading(slug, d.externalId);
     if (!reading) {
       fail++;
       continue;
@@ -149,39 +124,24 @@ async function tick() {
         plantCapacityKwp: Number((d as unknown as { plant?: { capacityKwp?: unknown } }).plant?.capacityKwp ?? 0),
         currentStatus: d.currentStatus,
       });
-      if (source === "real") realOk++;
-      else synthOk++;
+      ok++;
     } catch (err) {
       fail++;
       console.error(`[ingest] persist failed for ${d.externalId}:`, (err as Error).message);
     }
   }
   const dur = Date.now() - started;
-  console.log(
-    `[ingest] tick done · real=${realOk} synth=${synthOk} fail=${fail} · ${dur}ms`,
-  );
+  console.log(`[ingest] tick done · ok=${ok} fail=${fail} skipped=${skipped} · ${dur}ms`);
+  return { ok, fail, skipped };
 }
 
-async function main() {
-  console.log(
-    `[ingest] starting · interval=${POLL_INTERVAL_MS}ms · oneshot=${ONESHOT} · base=${process.env.MIDDLEWARE_BASE_URL}`,
-  );
-  await tick();
-  if (ONESHOT) {
-    await prisma.$disconnect();
-    return;
-  }
-  const timer = setInterval(() => void tick(), POLL_INTERVAL_MS);
-  const shutdown = async () => {
-    clearInterval(timer);
-    await prisma.$disconnect();
-    process.exit(0);
-  };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+// CLI mode: run a single tick and exit.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log(`[ingest] one-shot · base=${process.env.MIDDLEWARE_BASE_URL}`);
+  tick()
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
 }
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});

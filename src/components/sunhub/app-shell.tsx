@@ -1,20 +1,45 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+  AlertTriangle,
+  CloudSun,
+  FileText,
+  Gauge,
+  LayoutDashboard,
+  Plus,
+  Sparkles,
+  Sun,
+  Timer,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
+import { getSessionUser, type Role } from "@/lib/auth";
+import { UserMenu } from "./user-menu";
+import { AlarmBell } from "./alarm-bell";
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "◎" },
-  { href: "/plantas", label: "Plantas", icon: "☀" },
-  { href: "/alarmas", label: "Alarmas", icon: "!" },
-  { href: "/predicciones", label: "Predicción", icon: "⏳" },
-  { href: "/copilot", label: "Copilot AI", icon: "✦" },
-  { href: "/reportes", label: "Reportes", icon: "⎙" },
-  { href: "/clima", label: "Clima", icon: "☁" },
-  { href: "/costo-beneficio", label: "Proveedores", icon: "$" },
-  { href: "/onboarding", label: "Onboarding", icon: "+" },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  roles?: Role[]; // si no se define → visible para todos los roles
+};
+
+const NAV: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { href: "/plantas", label: "Plantas", icon: <Sun className="h-4 w-4" /> },
+  { href: "/alarmas", label: "Alarmas", icon: <AlertTriangle className="h-4 w-4" /> },
+  { href: "/predicciones", label: "Predicción", icon: <Timer className="h-4 w-4" /> },
+  { href: "/copilot", label: "Copilot AI", icon: <Sparkles className="h-4 w-4" /> },
+  { href: "/reportes", label: "Reportes", icon: <FileText className="h-4 w-4" /> },
+  { href: "/clima", label: "Clima", icon: <CloudSun className="h-4 w-4" /> },
+  { href: "/costo-beneficio", label: "Proveedores", icon: <Wallet className="h-4 w-4" /> },
+  { href: "/onboarding", label: "Onboarding", icon: <Plus className="h-4 w-4" />, roles: ["admin", "ops"] },
+  { href: "/usuarios", label: "Usuarios", icon: <Users className="h-4 w-4" />, roles: ["admin"] },
 ];
 
-export function AppShell({
+export async function AppShell({
   children,
   title,
   subtitle,
@@ -25,15 +50,22 @@ export function AppShell({
   subtitle?: string;
   actions?: ReactNode;
 }) {
+  // Guard global: si por alguna razón llegamos aquí sin sesión, mandamos al login.
+  // (el middleware de Next ya protege, pero esto hace doble check server-side)
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+
+  const visibleNav = NAV.filter((item) => !item.roles || item.roles.includes(user.role));
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:block">
         <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-5">
           <span className="font-heading text-xl font-bold text-sunhub-primary">SunHub</span>
-          <span className="text-xs text-slate-400">⚡</span>
+          <Gauge className="h-4 w-4 text-amber-500" />
         </div>
         <nav className="flex flex-col gap-0.5 p-3">
-          {NAV.map((item) => (
+          {visibleNav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -42,7 +74,7 @@ export function AppShell({
                 "hover:bg-emerald-50 hover:text-emerald-700",
               )}
             >
-              <span className="w-4 text-center text-base text-slate-400">{item.icon}</span>
+              <span className="text-slate-400">{item.icon}</span>
               {item.label}
             </Link>
           ))}
@@ -61,9 +93,8 @@ export function AppShell({
           </div>
           <div className="flex items-center gap-3">
             {actions}
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
-              TR
-            </div>
+            <AlarmBell />
+            <UserMenu user={user} />
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6">{children}</main>
