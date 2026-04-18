@@ -36,7 +36,8 @@ const PROBES: Probe[] = [
   { label: "Root",                  method: "GET",  path: "/" },
   { label: "Health",                method: "GET",  path: "/health" },
   { label: "Growatt · plant list",  method: "GET",  path: "/growatt/v1/plant/list" },
-  { label: "Huawei · stations",     method: "POST", path: "/huawei/thirdData/getStationList", body: {} },
+  // Usa v2 `/thirdData/stations` (solo pageNo). El v1 `getStationList` exige pageSize>=50.
+  { label: "Huawei · stations",     method: "POST", path: "/huawei/thirdData/stations", body: { pageNo: 1 } },
   { label: "Deye · stations",       method: "POST", path: "/deye/v1.0/station/list", body: {} },
   { label: "Hoymiles · plants",     method: "POST", path: "/hoymiles/pv/station/select_by_page", body: { page: 1, page_size: 10 } },
   { label: "SRNE · stations",       method: "GET",  path: "/srne/station/list" },

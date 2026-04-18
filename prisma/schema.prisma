@@ -11,15 +11,46 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ── Autenticación y usuarios ──────────────────────────────────
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  role         String    @default("viewer") // admin | ops | viewer
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+  sessions     Session[]
+  notificationPreference NotificationPreference?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
 // ── Comercial ─────────────────────────────────────────────────
 model Client {
-  id           String    @id @default(uuid()) @db.Uuid
-  name         String
-  contactEmail String?   @map("contact_email")
-  region       String?
-  createdAt    DateTime  @default(now()) @map("created_at")
-  plants       Plant[]
-  reports      Report[]
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String
+  contactEmail      String?          @map("contact_email")
+  region            String?
+  createdAt         DateTime         @default(now()) @map("created_at")
+  plants            Plant[]
+  reports           Report[]
+  reportSchedules   ReportSchedule[]
 
   @@map("clients")
 }
@@ -37,10 +68,13 @@ model Plant {
   contractEnd  DateTime? @map("contract_end") @db.Date
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  devices   Device[]
-  contracts Contract[]
-  reports   Report[]
+  client          Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  devices         Device[]
+  contracts       Contract[]
+  reports         Report[]
+  policy          PlantAutomationPolicy?
+  remediations    Remediation[]
+  reportSchedules ReportSchedule[]
 
   @@index([clientId])
   @@map("plants")
@@ -70,11 +104,13 @@ model Device {
   currentStatus String    @default("offline") @map("current_status") // online|warning|offline|degraded
   lastSeenAt    DateTime? @map("last_seen_at")
 
-  plant       Plant        @relation(fields: [plantId], references: [id], onDelete: Cascade)
-  provider    Provider     @relation(fields: [providerId], references: [id])
-  readings    Reading[]
-  alarms      Alarm[]
-  predictions Prediction[]
+  plant        Plant            @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  provider     Provider         @relation(fields: [providerId], references: [id])
+  readings     Reading[]
+  alarms       Alarm[]
+  predictions  Prediction[]
+  baselines    DeviceBaseline[]
+  remediations Remediation[]
 
   @@unique([providerId, externalId])
   @@index([plantId])
@@ -121,21 +157,90 @@ model Contract {
 
 // ── Alarmas y predicciones ────────────────────────────────────
 model Alarm {
-  id            String    @id @default(uuid()) @db.Uuid
-  deviceId      String    @map("device_id") @db.Uuid
-  severity      String // critical | warning | info
-  type          String // offline | frequency | voltage | low_gen | temperature
-  message       String
-  startedAt     DateTime  @default(now()) @map("started_at")
-  resolvedAt    DateTime? @map("resolved_at")
-  assignee      String?
-  aiSuggestion  String?   @map("ai_suggestion")
+  id               String    @id @default(uuid()) @db.Uuid
+  deviceId         String    @map("device_id") @db.Uuid
+  severity         String // critical | warning | info
+  type             String // offline | frequency | voltage | low_gen | temperature | provider
+  source           String    @default("rule") @map("source") // rule | deye | growatt | huawei
+  providerAlarmKey String?   @map("provider_alarm_key") // id nativo del proveedor cuando source != rule
+  message          String
+  startedAt        DateTime  @default(now()) @map("started_at")
+  resolvedAt       DateTime? @map("resolved_at")
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  acknowledgedBy   String?   @map("acknowledged_by") @db.Uuid
+  notifiedAt       DateTime? @map("notified_at") // última vez que salió fanout
+  assignee         String?
+  assignedUserId   String?   @map("assigned_user_id") @db.Uuid
+  aiSuggestion     String?   @map("ai_suggestion")
+  escalatedAt      DateTime? @map("escalated_at")
+  escalatedBy      String?   @map("escalated_by") @db.Uuid
+  escalationNote   String?   @map("escalation_note")
 
-  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  device       Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  predictions  Prediction[]
+  remediations Remediation[]
+  tickets      Ticket[]
 
+  @@unique([deviceId, source, providerAlarmKey], name: "alarms_device_source_key")
   @@index([deviceId, startedAt(sort: Desc)])
   @@index([resolvedAt])
+  @@index([severity, startedAt(sort: Desc)])
   @@map("alarms")
+}
+
+// ── Tickets ───────────────────────────────────────────────────
+// Un ticket nace normalmente de una alarma: la operación decide que el
+// problema requiere seguimiento más allá del simple ack/resolve (ej. cambio
+// de inversor, visita en sitio, coordinación con el cliente). El ticket
+// vive más allá del cierre de la alarma y se puede asignar / re-priorizar.
+model Ticket {
+  id          String    @id @default(uuid()) @db.Uuid
+  alarmId     String?   @map("alarm_id") @db.Uuid
+  title       String
+  description String?
+  priority    String    @default("medium") // low | medium | high | urgent
+  status      String    @default("open") // open | in_progress | blocked | resolved | closed
+  assignee    String?
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  closedAt    DateTime? @map("closed_at")
+
+  alarm Alarm? @relation(fields: [alarmId], references: [id], onDelete: SetNull)
+
+  @@index([alarmId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("tickets")
+}
+
+// ── Notificaciones ────────────────────────────────────────────
+model NotificationPreference {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  emailEnabled      Boolean  @default(true) @map("email_enabled")
+  browserEnabled    Boolean  @default(true) @map("browser_enabled")
+  soundEnabled      Boolean  @default(true) @map("sound_enabled")
+  minSeverity       String   @default("warning") @map("min_severity") // critical | warning | info
+  cooldownMinutes   Int      @default(10) @map("cooldown_minutes")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model NotificationLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  alarmId   String   @map("alarm_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  channel   String // email | browser | sse
+  status    String // sent | skipped | failed
+  detail    String?
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@index([alarmId, sentAt(sort: Desc)])
+  @@index([userId, sentAt(sort: Desc)])
+  @@map("notification_logs")
 }
 
 model Prediction {
@@ -149,11 +254,139 @@ model Prediction {
   suggestedAction String?  @map("suggested_action")
   modelVersion    String?  @map("model_version")
   generatedAt     DateTime @default(now()) @map("generated_at")
+  // Origen de la predicción:
+  //   scheduled → corrida manual o programada
+  //   alarm     → disparada por una alarma nueva (ver sourceAlarmId)
+  //   anomaly   → disparada por ruptura de baseline (z-score)
+  triggerKind     String   @default("scheduled") @map("trigger_kind")
+  sourceAlarmId   String?  @map("source_alarm_id") @db.Uuid
+
+  device       Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  sourceAlarm  Alarm?              @relation(fields: [sourceAlarmId], references: [id], onDelete: SetNull)
+  outcome      PredictionOutcome?
+  remediations Remediation[]
+
+  @@index([deviceId, generatedAt(sort: Desc)])
+  @@index([triggerKind, generatedAt(sort: Desc)])
+  @@map("predictions")
+}
+
+// ── Aprendizaje continuo ──────────────────────────────────────
+// Outcome de una predicción: ¿el evento ocurrió? lo cerramos manualmente o lo
+// emparejamos con una alarma. Se consume luego como RAG en el prompt del LLM.
+model PredictionOutcome {
+  id              String    @id @default(uuid()) @db.Uuid
+  predictionId    String    @unique @map("prediction_id") @db.Uuid
+  status          String // confirmed | dismissed | auto_matched | expired
+  matchedAlarmId  String?   @map("matched_alarm_id") @db.Uuid
+  actualEventAt   DateTime? @map("actual_event_at")
+  notes           String?
+  decidedBy       String?   @map("decided_by") @db.Uuid
+  decidedAt       DateTime  @default(now()) @map("decided_at")
+
+  prediction Prediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
+
+  @@index([status, decidedAt(sort: Desc)])
+  @@map("prediction_outcomes")
+}
+
+// Baseline rolling por device+métrica. Se actualiza nightly y provee la media
+// + stddev contra la que se calculan z-scores para anomalías proactivas.
+model DeviceBaseline {
+  id         String   @id @default(uuid()) @db.Uuid
+  deviceId   String   @map("device_id") @db.Uuid
+  metric     String // power_ac_kw | voltage_v | temperature_c | pr_pct | uptime_pct
+  windowDays Int      @default(30) @map("window_days")
+  sampleSize Int      @default(0) @map("sample_size")
+  mean       Decimal  @db.Decimal(14, 4)
+  stddev     Decimal  @db.Decimal(14, 4)
+  p05        Decimal? @db.Decimal(14, 4)
+  p50        Decimal? @db.Decimal(14, 4)
+  p95        Decimal? @db.Decimal(14, 4)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
-  @@index([deviceId, generatedAt(sort: Desc)])
-  @@map("predictions")
+  @@unique([deviceId, metric, windowDays])
+  @@index([metric])
+  @@map("device_baselines")
+}
+
+// ── Automatización: política por planta + remediaciones ───────
+// Controla si la operación puede ejecutar comandos automáticamente, con
+// aprobación humana, o solo sugerirlos. executionMode decide si el executor
+// envía el POST real al middleware o se queda en simulación.
+model PlantAutomationPolicy {
+  id                 String   @id @default(uuid()) @db.Uuid
+  plantId            String   @unique @map("plant_id") @db.Uuid
+  autonomyLevel      String   @default("manual") @map("autonomy_level") // manual | approval | auto
+  executionMode      String   @default("mock") @map("execution_mode") // mock | real
+  allowedCommands    String[] @default([]) @map("allowed_commands")
+  requiredApproverRole String @default("admin") @map("required_approver_role") // admin | ops
+  maxActionsPerDay   Int      @default(10) @map("max_actions_per_day")
+  notes              String?
+  updatedBy          String?  @map("updated_by") @db.Uuid
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@map("plant_automation_policies")
+}
+
+// Propuesta de remediación. Atada opcionalmente a una predicción o alarma.
+// lifecycle: proposed → (approved|rejected) → executed → (verified|failed).
+// Cada intento de ejecución deja un registro en RemediationAudit.
+model Remediation {
+  id               String    @id @default(uuid()) @db.Uuid
+  plantId          String    @map("plant_id") @db.Uuid
+  deviceId         String?   @map("device_id") @db.Uuid
+  predictionId     String?   @map("prediction_id") @db.Uuid
+  alarmId          String?   @map("alarm_id") @db.Uuid
+  commandType      String    @map("command_type") // restart | clear_fault | set_work_mode | custom_control
+  commandPayload   Json      @map("command_payload")
+  reason           String
+  status           String    @default("proposed") // proposed | approved | rejected | executing | executed | verified | failed | cancelled
+  executionMode    String    @default("mock") @map("execution_mode") // mock | real (decidido al ejecutar)
+  proposedBy       String    @default("ai") @map("proposed_by") // ai | user
+  proposedAt       DateTime  @default(now()) @map("proposed_at")
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  approvedAt       DateTime? @map("approved_at")
+  rejectedBy       String?   @map("rejected_by") @db.Uuid
+  rejectedAt       DateTime? @map("rejected_at")
+  rejectedReason   String?   @map("rejected_reason")
+  executedAt       DateTime? @map("executed_at")
+  executedBy       String?   @map("executed_by") @db.Uuid
+  // orderId devuelto por el middleware cuando real mode tiene éxito (Deye).
+  providerOrderId  String?   @map("provider_order_id")
+  // Resumen breve del resultado (HTTP status, mensaje, simulado).
+  executionResult  Json?     @map("execution_result")
+  verifiedAt       DateTime? @map("verified_at")
+  verifiedOutcome  String?   @map("verified_outcome") // success | partial | no_effect
+
+  plant      Plant                @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  device     Device?              @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  prediction Prediction?          @relation(fields: [predictionId], references: [id], onDelete: SetNull)
+  alarm      Alarm?               @relation(fields: [alarmId], references: [id], onDelete: SetNull)
+  audit      RemediationAudit[]
+
+  @@index([plantId, proposedAt(sort: Desc)])
+  @@index([status, proposedAt(sort: Desc)])
+  @@map("remediations")
+}
+
+model RemediationAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  remediationId  String   @map("remediation_id") @db.Uuid
+  event          String // proposed | approved | rejected | executed | verified | failed
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  actorKind      String   @default("user") @map("actor_kind") // user | system | ai
+  payload        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  remediation Remediation @relation(fields: [remediationId], references: [id], onDelete: Cascade)
+
+  @@index([remediationId, createdAt(sort: Desc)])
+  @@map("remediation_audits")
 }
 
 // ── Reportes ──────────────────────────────────────────────────
@@ -161,15 +394,77 @@ model Report {
   id            String   @id @default(uuid()) @db.Uuid
   clientId      String   @map("client_id") @db.Uuid
   plantId       String?  @map("plant_id") @db.Uuid
+  scheduleId    String?  @map("schedule_id") @db.Uuid
   period        DateTime @db.Date
-  status        String   @default("draft") // draft | generating | sent
+  status        String   @default("draft") // draft | generating | sent | failed
   pdfUrl        String?  @map("pdf_url")
   compliancePct Decimal? @map("compliance_pct") @db.Decimal(5, 2)
   generatedAt   DateTime @default(now()) @map("generated_at")
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  plant  Plant? @relation(fields: [plantId], references: [id])
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  plant    Plant?          @relation(fields: [plantId], references: [id])
+  schedule ReportSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
   @@index([clientId, period])
+  @@index([scheduleId])
   @@map("reports")
+}
+
+// Programaciones de reportes automáticos — ejecutados por el cron worker.
+model ReportSchedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  title          String
+  plantId        String?   @map("plant_id") @db.Uuid
+  clientId       String?   @map("client_id") @db.Uuid
+  // monthly | weekly | biweekly | quarterly
+  cadence        String
+  // Parámetros de la cadencia (todos opcionales según el tipo):
+  //   monthly    → dayOfMonth (1..28)
+  //   weekly     → dayOfWeek  (0..6; 0 = domingo)
+  //   biweekly   → dayOfWeek  + anchorDate
+  //   quarterly  → dayOfMonth (1..28) del primer mes de cada trimestre
+  dayOfMonth     Int?      @map("day_of_month")
+  dayOfWeek      Int?      @map("day_of_week")
+  hour           Int       @default(7)
+  minute         Int       @default(0)
+  timezone       String    @default("America/Bogota")
+  recipientEmail String?   @map("recipient_email")
+  active         Boolean   @default(true)
+  nextRunAt      DateTime  @map("next_run_at")
+  lastRunAt      DateTime? @map("last_run_at")
+  lastStatus     String?   @map("last_status") // success | failed
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  plant   Plant?   @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reports Report[]
+
+  @@index([active, nextRunAt])
+  @@map("report_schedules")
+}
+
+// ── Jobs en background ────────────────────────────────────────
+// Usado para correr predicciones masivas sin bloquear el request HTTP.
+// La UI consulta este modelo para mostrar spinner persistente en el header
+// y avisar cuando terminan (aunque el usuario haya navegado a otra página).
+model PredictionJob {
+  id              String    @id @default(uuid()) @db.Uuid
+  kind            String    @default("run-all") // run-all | (futuros tipos)
+  status          String    @default("pending") // pending | running | completed | failed
+  totalCount      Int       @default(0) @map("total_count")
+  processedCount  Int       @default(0) @map("processed_count")
+  successCount    Int       @default(0) @map("success_count")
+  failedCount     Int       @default(0) @map("failed_count")
+  totalPredictions Int      @default(0) @map("total_predictions")
+  currentPlant    String?   @map("current_plant")
+  startedBy       String?   @map("started_by") @db.Uuid
+  startedAt       DateTime  @default(now()) @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  error           String?
+  results         Json?
+
+  @@index([status, startedAt(sort: Desc)])
+  @@map("prediction_jobs")
 }

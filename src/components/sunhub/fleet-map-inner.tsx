@@ -25,9 +25,11 @@ function FlyTo({ target }: { target: { lat: number; lng: number; zoom?: number }
 export default function FleetMapInner({
   points,
   focusedId,
+  onSelectPlant,
 }: {
   points: MapPoint[];
   focusedId?: string | null;
+  onSelectPlant?: (id: string) => void;
 }) {
   const center: [number, number] = [4.7, -74.0];
   const markerRefs = useRef(new Map<string, LeafletCircleMarker>());
@@ -69,6 +71,13 @@ export default function FleetMapInner({
             fillOpacity: p.id === focusedId ? 0.95 : 0.65,
             weight: p.id === focusedId ? 3 : 1.5,
           }}
+          eventHandlers={
+            onSelectPlant
+              ? {
+                  click: () => onSelectPlant(p.id),
+                }
+              : undefined
+          }
           ref={(el) => {
             if (el) markerRefs.current.set(p.id, el);
             else markerRefs.current.delete(p.id);

@@ -1,0 +1,1597 @@
+openapi: 3.0.3
+info:
+  title: Tinku Hackathon · Middleware API
+  version: "1.1.0"
+  summary: Middleware unificado para consumir datos de plantas solares (Growatt, DeyeCloud, Huawei FusionSolar).
+  description: |
+    Middleware oficial del **Tinku Hackathon 2026** desplegado en
+    `https://techos.thetribu.dev`. Centraliza la autenticación y el routing
+    hacia las APIs originales de los proveedores de plantas solares.
+
+    ## Cómo funciona
+    - Tú hablas con este middleware; el middleware habla con los proveedores.
+    - La URL sigue el patrón `https://techos.thetribu.dev/<proveedor>/<ruta-del-proveedor>`.
+    - Todo lo que va **después** del slug del proveedor corresponde 1:1 a la
+      documentación oficial del proveedor: el middleware solo reenvía.
+    - Los tokens de cada proveedor se renuevan automáticamente; tu equipo
+      nunca verá un 401 por expiración.
+
+    ## Autenticación
+    Envía tu API key de equipo (formato `tk_xxxxxxxx`) en el header
+    `Authorization` — **sin** el prefijo `Bearer`.
+
+    ```
+    Authorization: tk_xee3qLXzHwOy5d7zUWy0UIcurrfDsNbc
+    ```
+
+    ## Slugs de proveedor
+
+    | Proveedor          | Slug      | Métodos        | Auth upstream          |
+    |--------------------|-----------|----------------|------------------------|
+    | Growatt            | `growatt` | `GET`          | Token de sesión        |
+    | DeyeCloud          | `deye`    | `GET`, `POST`  | Bearer JWT (60 días)   |
+    | Huawei FusionSolar | `huawei`  | `GET`, `POST`  | XSRF-TOKEN (30 min)    |
+    | Hoymiles           | `hoymiles`| `GET`          | (reservado)            |
+    | SRNE               | `srne`    | `GET`          | (reservado)            |
+    | Solarman           | `solarman`| `GET`          | (reservado)            |
+
+    ## Formatos de respuesta
+    - **Growatt** y **Huawei** devuelven JSON limpio (`application/json`).
+    - **DeyeCloud** y algunos endpoints de **Growatt** (p. ej. `plant/list`,
+      `device/list`) devuelven payloads **comprimidos con un encoding
+      propietario** que no corresponde a `gzip`, `deflate` ni `brotli` estándar.
+      Para el flujo del hackathon se recomiendan los endpoints que sí devuelven
+      JSON limpio (ver tags **Growatt** y **DeyeCloud**).
+
+    ## Timestamps en DeyeCloud
+    Los endpoints `station/history/power` y `station/alertList` esperan
+    `startTimestamp` / `endTimestamp` en **segundos** (unix epoch). Si envías
+    milisegundos el validador upstream de Deye rechaza con mensajes tipo
+    *"should be <=12months"* (history) o *"should not exceed 30 days"* (alerts).
+
+    ## Documentación oficial de cada proveedor
+    - **Growatt** · https://growatt.pl/wp-content/uploads/2020/01/Growatt-Server-API-Guide.pdf
+    - **DeyeCloud** · https://developer.deyecloud.com/api
+    - **Huawei FusionSolar** · https://support.huawei.com/enterprise/en/doc/EDOC1100520173/baf43abb/basic
+  contact:
+    name: Organización Tinku Hackathon
+    url: https://techos.thetribu.dev
+  license:
+    name: Uso exclusivo del hackathon
+
+servers:
+  - url: https://techos.thetribu.dev
+    description: Middleware de producción
+
+tags:
+  - name: Growatt · User
+    description: Gestión de usuarios C&I / instaladores de Growatt.
+  - name: Growatt · Plant
+    description: CRUD y consulta de plantas de Growatt.
+  - name: Growatt · Device
+    description: Dataloggers, inversores y sets de control de Growatt.
+  - name: Growatt · Storage
+    description: Endpoints de sistemas de almacenamiento (storage) Growatt.
+  - name: DeyeCloud · Station
+    description: Endpoints `station/*` de DeyeCloud (POST con cuerpo JSON).
+  - name: DeyeCloud · Device
+    description: Endpoints `device/*` de DeyeCloud.
+  - name: DeyeCloud · Alarm
+    description: Endpoints de alarmas `alarm/*` y `station/alertList` de DeyeCloud.
+  - name: Huawei · Station
+    description: Listado y datos estáticos de estaciones Huawei FusionSolar.
+  - name: Huawei · Device
+    description: Listado y datos de dispositivos Huawei FusionSolar.
+  - name: Huawei · KPI
+    description: Series agregadas de KPIs horarios/diarios/mensuales/anuales.
+  - name: Huawei · Alarm
+    description: Consulta de alarmas activas e históricas.
+  - name: Huawei · Control
+    description: Comandos de control de batería / inversor (configuración y tareas asíncronas).
+  - name: Providers adicionales
+    description: Hoymiles, SRNE y Solarman están declarados en el middleware pero sin endpoints documentados. Consultar la doc oficial del proveedor y reescribir la URL con el prefijo correspondiente.
+
+security:
+  - teamApiKey: []
+
+paths:
+  # ═══════════════════════════════════════════════════════════
+  # Growatt · User
+  # ═══════════════════════════════════════════════════════════
+  /growatt/v1/user_register:
+    get:
+      tags: [Growatt · User]
+      summary: Registra un usuario C&I
+      operationId: growattUserRegister
+      parameters:
+        - { name: c_user_name,  in: query, required: true,  schema: { type: string } }
+        - { name: c_user_email, in: query, required: true,  schema: { type: string, format: email } }
+        - { name: c_user_tel,   in: query, required: false, schema: { type: string } }
+        - { name: country,      in: query, required: false, schema: { type: string, example: Mexico } }
+        - { name: timezone,     in: query, required: false, schema: { type: string, example: "GMT-5" } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/user/check_user:
+    get:
+      tags: [Growatt · User]
+      summary: Verifica si un usuario existe en Growatt
+      operationId: growattUserCheck
+      parameters:
+        - { name: c_user_name, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/user/modify:
+    get:
+      tags: [Growatt · User]
+      summary: Modifica un usuario C&I
+      operationId: growattUserModify
+      parameters:
+        - { name: c_user_name,  in: query, required: true,  schema: { type: string } }
+        - { name: c_user_email, in: query, required: false, schema: { type: string, format: email } }
+        - { name: c_user_tel,   in: query, required: false, schema: { type: string } }
+        - { name: country,      in: query, required: false, schema: { type: string } }
+        - { name: timezone,     in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/user/c_user_list:
+    get:
+      tags: [Growatt · User]
+      summary: Lista paginada de usuarios C&I del instalador
+      operationId: growattUserList
+      parameters:
+        - $ref: "#/components/parameters/GrowattPage"
+        - name: perpage
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Growatt · Plant
+  # ═══════════════════════════════════════════════════════════
+  /growatt/v1/plant/list:
+    get:
+      tags: [Growatt · Plant]
+      summary: Lista de plantas del portfolio Growatt
+      description: |
+        Devuelve el listado de plantas visibles por la cuenta Growatt enlazada
+        al middleware. **Nota:** el cuerpo llega con un encoding propietario;
+        para obtener JSON limpio por planta usa
+        [`/growatt/v1/plant/data`](#/Growatt%20%C2%B7%20Plant/growattPlantData).
+      operationId: growattPlantList
+      parameters:
+        - $ref: "#/components/parameters/GrowattPage"
+      responses:
+        "200":
+          description: Payload con encoding propietario (no gzip/deflate/brotli estándar).
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProviderNotFound" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+
+  /growatt/v1/plant/user_plant_list:
+    get:
+      tags: [Growatt · Plant]
+      summary: Lista de plantas de un usuario C&I específico
+      operationId: growattUserPlantList
+      parameters:
+        - { name: c_user_id, in: query, required: true, schema: { type: integer } }
+        - $ref: "#/components/parameters/GrowattPage"
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/plant/add:
+    get:
+      tags: [Growatt · Plant]
+      summary: Crea una planta para un usuario C&I
+      operationId: growattPlantAdd
+      parameters:
+        - { name: c_user_id,         in: query, required: true,  schema: { type: integer } }
+        - { name: plant_name,        in: query, required: true,  schema: { type: string } }
+        - { name: country,           in: query, required: false, schema: { type: string } }
+        - { name: city,              in: query, required: false, schema: { type: string } }
+        - { name: peak_power,        in: query, required: false, schema: { type: number, description: "kWp" } }
+        - { name: install_date,      in: query, required: false, schema: { type: string, format: date } }
+        - { name: currency,          in: query, required: false, schema: { type: string, example: "USD" } }
+        - { name: timezone_id,       in: query, required: false, schema: { type: string, example: "GMT-5" } }
+        - { name: latitude_d,        in: query, required: false, schema: { type: number } }
+        - { name: latitude_f,        in: query, required: false, schema: { type: number } }
+        - { name: longitude_d,       in: query, required: false, schema: { type: number } }
+        - { name: longitude_f,       in: query, required: false, schema: { type: number } }
+        - { name: locale,            in: query, required: false, schema: { type: string, example: "en" } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/plant/modify:
+    get:
+      tags: [Growatt · Plant]
+      summary: Modifica metadatos de una planta
+      operationId: growattPlantModify
+      parameters:
+        - { name: plant_id,   in: query, required: true,  schema: { type: integer } }
+        - { name: plant_name, in: query, required: false, schema: { type: string } }
+        - { name: country,    in: query, required: false, schema: { type: string } }
+        - { name: city,       in: query, required: false, schema: { type: string } }
+        - { name: peak_power, in: query, required: false, schema: { type: number } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/plant/delete:
+    get:
+      tags: [Growatt · Plant]
+      summary: Elimina una planta
+      operationId: growattPlantDelete
+      parameters:
+        - { name: plant_id, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/plant/details:
+    get:
+      tags: [Growatt · Plant]
+      summary: Detalles estáticos de una planta (nombre, ubicación, capacidad)
+      operationId: growattPlantDetails
+      parameters:
+        - { name: plant_id, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/plant/data:
+    get:
+      tags: [Growatt · Plant]
+      summary: Datos actuales de una planta Growatt
+      description: |
+        Devuelve la última lectura agregada de la planta: potencia actual,
+        energía del día/mes/año/total, timezone y timestamp.
+      operationId: growattPlantData
+      parameters:
+        - name: plant_id
+          in: query
+          required: true
+          description: ID de la planta en Growatt (no es el ID interno de SunHub).
+          schema: { type: string, example: "1356131" }
+      responses:
+        "200":
+          description: Lectura agregada de la planta.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GrowattPlantDataResponse" }
+              examples:
+                ok:
+                  summary: Respuesta real capturada
+                  value:
+                    error_code: 0
+                    error_msg: ""
+                    data:
+                      total_energy: "93890"
+                      last_update_time: "2025-04-11 11:03:27"
+                      carbon_offset: "0"
+                      efficiency: ""
+                      monthly_energy: "0"
+                      peak_power_actual: 50
+                      timezone: "GMT-5"
+                      current_power: 0
+                      yearly_energy: "0"
+                      today_energy: "0"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProviderNotFound" }
+
+  /growatt/v1/plant/energy:
+    get:
+      tags: [Growatt · Plant]
+      summary: Serie diaria de energía de una planta
+      description: |
+        En el hackathon este endpoint ha respondido **`error_code: 10003`** ante
+        los plant IDs observados. Verifica el formato de `plantId` / `date` con
+        la documentación oficial de Growatt.
+      operationId: growattPlantEnergy
+      parameters:
+        - name: plantId
+          in: query
+          required: true
+          schema: { type: string, example: "1356131" }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date, example: "2026-04-17" }
+      responses:
+        "200":
+          description: Serie de energía o error lógico Growatt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GrowattEnvelope" }
+              examples:
+                knownError:
+                  summary: Respuesta observada en el hackathon
+                  value:
+                    error_code: 10003
+                    error_msg: "error_plant ID is empty"
+                    data: ""
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/plant/power:
+    get:
+      tags: [Growatt · Plant]
+      summary: Serie intradiaria de potencia de una planta
+      description: |
+        Igual que `/plant/energy`, en el hackathon devuelve `error_code: 10003`
+        con los plant IDs observados. Verifica el formato con la doc oficial.
+      operationId: growattPlantPower
+      parameters:
+        - name: plantId
+          in: query
+          required: true
+          schema: { type: string, example: "1356131" }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date, example: "2026-04-17" }
+      responses:
+        "200":
+          description: Serie intradiaria o error lógico Growatt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GrowattEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Growatt · Device (datalogger + inverter)
+  # ═══════════════════════════════════════════════════════════
+  /growatt/v1/device/list:
+    get:
+      tags: [Growatt · Device]
+      summary: Lista de dispositivos (inverters) de una planta Growatt
+      operationId: growattDeviceList
+      parameters:
+        - name: plant_id
+          in: query
+          required: true
+          schema: { type: string, example: "1356131" }
+      responses:
+        "200":
+          description: Payload con encoding propietario (no gzip/deflate/brotli estándar).
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/datalogger/list:
+    get:
+      tags: [Growatt · Device]
+      summary: Lista de dataloggers de una planta
+      operationId: growattDataloggerList
+      parameters:
+        - { name: plant_id, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/datalogger/add:
+    get:
+      tags: [Growatt · Device]
+      summary: Asocia un datalogger a una planta
+      operationId: growattDataloggerAdd
+      parameters:
+        - { name: plant_id, in: query, required: true, schema: { type: integer } }
+        - { name: sn,       in: query, required: true, schema: { type: string, description: "Serial del datalogger" } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/datalogger/delete:
+    get:
+      tags: [Growatt · Device]
+      summary: Desasocia un datalogger de una planta
+      operationId: growattDataloggerDelete
+      parameters:
+        - { name: plant_id, in: query, required: true, schema: { type: integer } }
+        - { name: sn,       in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/datalogger/validate:
+    get:
+      tags: [Growatt · Device]
+      summary: Valida si un datalogger está disponible para asociarse
+      operationId: growattDataloggerValidate
+      parameters:
+        - { name: sn,            in: query, required: true, schema: { type: string } }
+        - { name: validate_code, in: query, required: true, schema: { type: string, description: "Checksum impreso en la etiqueta del datalogger" } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/inverter/data:
+    get:
+      tags: [Growatt · Device]
+      summary: Serie intradiaria detallada de un inversor
+      operationId: growattInverterData
+      parameters:
+        - { name: inverter_id, in: query, required: true, schema: { type: string, description: "Serial del inversor" } }
+        - { name: date,        in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/inverter/alarm:
+    get:
+      tags: [Growatt · Device]
+      summary: Alarmas actuales/históricas de un inversor
+      operationId: growattInverterAlarm
+      parameters:
+        - { name: inverter_id, in: query, required: true, schema: { type: string } }
+        - { name: date,        in: query, required: false, schema: { type: string, format: date } }
+        - $ref: "#/components/parameters/GrowattPage"
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/inverter/last_new_data:
+    get:
+      tags: [Growatt · Device]
+      summary: Última lectura puntual de un inversor
+      operationId: growattInverterLastNewData
+      parameters:
+        - { name: inverter_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/inverter/invs_data:
+    get:
+      tags: [Growatt · Device]
+      summary: Datos agregados de todos los inversores de una planta
+      operationId: growattInverterInvsData
+      parameters:
+        - { name: plant_id, in: query, required: true, schema: { type: integer } }
+        - { name: date,     in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/inverterSet:
+    get:
+      tags: [Growatt · Device]
+      summary: Envía un comando set a un inversor Growatt
+      description: |
+        Ejecuta un comando de configuración (p. ej. `pf_sys_year`, `pv_active_p_rate`,
+        `active_power_enable`). El catálogo completo está en la doc oficial de Growatt.
+      operationId: growattInverterSet
+      parameters:
+        - { name: inverter_id, in: query, required: true, schema: { type: string } }
+        - { name: type,        in: query, required: true, schema: { type: string, example: "pv_active_p_rate" } }
+        - { name: param1,      in: query, required: false, schema: { type: string } }
+        - { name: param2,      in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Growatt · Storage
+  # ═══════════════════════════════════════════════════════════
+  /growatt/v1/device/storage/alarm_data:
+    get:
+      tags: [Growatt · Storage]
+      summary: Alarmas de un sistema de almacenamiento Growatt
+      operationId: growattStorageAlarm
+      parameters:
+        - { name: storage_id, in: query, required: true, schema: { type: string } }
+        - { name: date,       in: query, required: false, schema: { type: string, format: date } }
+        - $ref: "#/components/parameters/GrowattPage"
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/device/storage/storage_last_data:
+    get:
+      tags: [Growatt · Storage]
+      summary: Última lectura de un sistema de almacenamiento Growatt
+      operationId: growattStorageLastData
+      parameters:
+        - { name: storage_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /growatt/v1/storageSet:
+    get:
+      tags: [Growatt · Storage]
+      summary: Envía un comando set a un sistema de almacenamiento
+      operationId: growattStorageSet
+      parameters:
+        - { name: storage_id, in: query, required: true, schema: { type: string } }
+        - { name: type,       in: query, required: true, schema: { type: string } }
+        - { name: param1,     in: query, required: false, schema: { type: string } }
+        - { name: param2,     in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/GrowattOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # DeyeCloud · Station
+  # ═══════════════════════════════════════════════════════════
+  /deye/v1.0/station/list:
+    post:
+      tags: [DeyeCloud · Station]
+      summary: Lista de estaciones DeyeCloud
+      description: |
+        Devuelve el listado paginado de estaciones. **Nota:** actualmente la
+        respuesta llega con un encoding propietario; para un payload JSON
+        limpio por estación usa
+        [`/deye/v1.0/station/latest`](#/DeyeCloud%20%C2%B7%20Station/deyeStationLatest).
+      operationId: deyeStationList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeyePageRequest" }
+            examples:
+              paged: { value: { page: 1, size: 20 } }
+              all:   { value: { page: 1, size: 50 } }
+      responses:
+        "200":
+          description: Lista (raw) de estaciones — encoding propietario.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Parámetros inválidos (ej. `page_no` / `page_size` en snake_case).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeyeError" }
+              example:
+                code: "2101008"
+                msg: "invalid param type"
+                success: false
+                requestId: "af042e17246ef5a2"
+
+  /deye/v1.0/station/listWithDevice:
+    post:
+      tags: [DeyeCloud · Station]
+      summary: Lista de estaciones **con sus dispositivos embebidos**
+      description: |
+        Variante de `station/list` que incluye el arreglo de dispositivos por
+        estación en la misma respuesta — útil para evitar un round-trip extra
+        por planta. Acepta los mismos parámetros de paginación.
+      operationId: deyeStationListWithDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeyePageRequest" }
+            example: { page: 1, size: 20 }
+      responses:
+        "200":
+          description: Estaciones con `devices[]` anidado.
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /deye/v1.0/station/device:
+    post:
+      tags: [DeyeCloud · Station]
+      summary: Lista de dispositivos filtrada por un conjunto de estaciones
+      description: |
+        Devuelve los dispositivos (inversores, medidores, baterías) asociados
+        a una lista de `stationIds`. Paginación estándar `{page, size}`.
+      operationId: deyeStationDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/DeyePageRequest"
+                - type: object
+                  required: [stationIds]
+                  properties:
+                    stationIds:
+                      type: array
+                      minItems: 1
+                      items: { type: integer }
+                      example: [40760]
+            example: { page: 1, size: 10, stationIds: [40760] }
+      responses:
+        "200":
+          description: Dispositivos de las estaciones solicitadas.
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /deye/v1.0/station/latest:
+    post:
+      tags: [DeyeCloud · Station]
+      summary: Última lectura de una estación Deye
+      description: Potencia instantánea y estados (batería, consumo, generación) en tiempo casi-real.
+      operationId: deyeStationLatest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationId]
+              properties:
+                stationId:
+                  oneOf: [{ type: integer }, { type: string }]
+                  example: 40760
+      responses:
+        "200":
+          description: Lectura instantánea de la estación.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeyeStationLatestResp" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /deye/v1.0/station/history:
+    post:
+      tags: [DeyeCloud · Station]
+      summary: Serie histórica agregada de una estación
+      description: |
+        Serie histórica por día/mes/año. La **granularidad** es numérica:
+
+        | `granularity` | Resolución |
+        |---------------|------------|
+        | `1`           | Por hora   |
+        | `2`           | Por día    |
+        | `3`           | Por mes    |
+        | `4`           | Por año    |
+
+        Las fechas `startAt` / `endAt` van como `YYYY-MM-DD`.
+      operationId: deyeStationHistory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationId, granularity, startAt, endAt]
+              properties:
+                stationId:   { oneOf: [{ type: integer }, { type: string }], example: 40760 }
+                granularity: { type: integer, enum: [1, 2, 3, 4], example: 2 }
+                startAt:     { type: string, format: date, example: "2026-04-17" }
+                endAt:       { type: string, format: date, example: "2026-04-18" }
+            example: { stationId: 40760, granularity: 2, startAt: "2026-04-17", endAt: "2026-04-18" }
+      responses:
+        "200":
+          description: Serie histórica agregada.
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /deye/v1.0/station/history/power:
+    post:
+      tags: [DeyeCloud · Station]
+      summary: Serie histórica de potencia (resolución alta)
+      description: |
+        Serie de potencia de alta resolución. **Atención:** `startTimestamp` y
+        `endTimestamp` son **segundos** (unix epoch) — si pasas milisegundos el
+        validador upstream responde:
+
+        ```
+        "duration between startTimestamp and endTimestamp should be <=12months"
+        ```
+
+        Mantén la ventana ≤ 12 meses.
+      operationId: deyeStationHistoryPower
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationId, startTimestamp, endTimestamp]
+              properties:
+                stationId:      { oneOf: [{ type: integer }, { type: string }], example: 40760 }
+                startTimestamp: { type: integer, description: "Unix epoch **en segundos**.", example: 1776412800 }
+                endTimestamp:   { type: integer, description: "Unix epoch **en segundos**.", example: 1776499200 }
+            example: { stationId: 40760, startTimestamp: 1776412800, endTimestamp: 1776499200 }
+      responses:
+        "200":
+          description: Serie de potencia.
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+        "400":
+          description: Ventana inválida (p. ej. > 12 meses, o timestamps en ms).
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/DeyeError" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # DeyeCloud · Device
+  # ═══════════════════════════════════════════════════════════
+  /deye/v1.0/device/list:
+    post:
+      tags: [DeyeCloud · Device]
+      summary: Lista de dispositivos (inverters, meters) de una estación Deye
+      operationId: deyeDeviceList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/DeyePageRequest"
+                - type: object
+                  properties:
+                    stationId:
+                      oneOf: [{ type: integer }, { type: string }]
+                      example: 40760
+      responses:
+        "200":
+          description: Lista de dispositivos (puede llegar con encoding propietario).
+          content:
+            application/json:       { schema: { type: object, additionalProperties: true } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # DeyeCloud · Alarm
+  # ═══════════════════════════════════════════════════════════
+  /deye/v1.0/alarm/listByPage:
+    post:
+      tags: [DeyeCloud · Alarm]
+      summary: Listado paginado de alarmas (DeyeCloud)
+      description: |
+        Endpoint de alarmas documentado por DeyeCloud. Probado como candidato
+        en `scripts/probe-alarms.ts`. La forma exacta del cuerpo y de la
+        respuesta debe validarse contra la doc oficial del proveedor.
+      operationId: deyeAlarmListByPage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeyePageRequest" }
+            example: { page: 1, size: 20 }
+      responses:
+        "200":
+          description: Listado de alarmas.
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProviderNotFound" }
+
+  /deye/v1.0/station/alertList:
+    post:
+      tags: [DeyeCloud · Alarm]
+      summary: Alarmas de una estación en una ventana temporal
+      description: |
+        Lista paginada de alarmas para `stationId` dentro de `[startTimestamp,
+        endTimestamp]`. **Atención:** los timestamps son **segundos** (unix
+        epoch). Si pasas milisegundos upstream responde:
+
+        ```
+        "duration between startTimestamp and endTimestamp should not exceed 30 days"
+        ```
+
+        Mantén la ventana ≤ 30 días.
+      operationId: deyeStationAlertList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationId, startTimestamp, endTimestamp, page, size]
+              properties:
+                stationId:      { oneOf: [{ type: integer }, { type: string }], example: 40760 }
+                startTimestamp: { type: integer, description: "Unix epoch **en segundos**.", example: 1776412800 }
+                endTimestamp:   { type: integer, description: "Unix epoch **en segundos**.", example: 1776499200 }
+                page:           { type: integer, minimum: 1, example: 1 }
+                size:           { type: integer, minimum: 1, maximum: 100, example: 10 }
+            example: { stationId: 40760, startTimestamp: 1776412800, endTimestamp: 1776499200, page: 1, size: 10 }
+      responses:
+        "200":
+          description: Alarmas en la ventana.
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+        "400":
+          description: Ventana inválida (p. ej. > 30 días, o timestamps en ms).
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/DeyeError" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Huawei FusionSolar · Station (plantas)
+  # ═══════════════════════════════════════════════════════════
+  /huawei/thirdData/stations:
+    post:
+      tags: [Huawei · Station]
+      summary: Plant List (paginado · reemplaza a `getStationList`)
+      description: |
+        Listado paginado de plantas. Filtra por ventana de **fecha de
+        conexión a la red** (`gridConnectedStartTime` / `gridConnectedEndTime`
+        en **milisegundos** unix epoch). `pageNo` arranca en 1 y el tamaño
+        de página lo decide Huawei (100 por defecto).
+      operationId: huaweiStations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pageNo:                 { type: integer, minimum: 1, example: 1 }
+                gridConnectedStartTime: { type: integer, description: "ms unix epoch", example: 1704067200000 }
+                gridConnectedEndTime:   { type: integer, description: "ms unix epoch", example: 1776499200000 }
+            example: { pageNo: 1 }
+      responses:
+        "200":
+          description: Página de estaciones.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getStationList:
+    post:
+      tags: [Huawei · Station]
+      deprecated: true
+      summary: "(Deprecated) Listado histórico de estaciones"
+      description: |
+        Endpoint legado que Huawei mantiene por compatibilidad; para nuevas
+        integraciones usar [`/huawei/thirdData/stations`](#/Huawei%20%C2%B7%20Station/huaweiStations).
+      operationId: huaweiGetStationList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+            example: {}
+      responses:
+        "200":
+          description: Listado (legacy).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getStationRealKpi:
+    post:
+      tags: [Huawei · Station]
+      summary: Real-Time Plant Data
+      description: |
+        Últimos KPIs en tiempo casi-real para un set de `stationCodes`
+        (separados por coma). Devuelve `dataItemMap` con `day_power`,
+        `month_power`, `total_power`, `day_income`, `total_income`,
+        `day_on_grid_energy`, `day_use_energy`, `real_health_state` (1=disconnected,
+        2=faulty, 3=healthy).
+      operationId: huaweiStationRealKpi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationCodes]
+              properties:
+                stationCodes: { type: string, description: "Hasta 100 separados por coma.", example: "NE=123,NE=456" }
+      responses:
+        "200":
+          description: KPIs en tiempo casi real.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/HuaweiEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            stationCode: { type: string }
+                            dataItemMap: { $ref: "#/components/schemas/HuaweiStationRealKpi" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Huawei FusionSolar · Device
+  # ═══════════════════════════════════════════════════════════
+  /huawei/thirdData/getDevList:
+    post:
+      tags: [Huawei · Device]
+      summary: Device List
+      description: |
+        Lista de dispositivos para un set de `stationCodes`. Cada ítem incluye
+        `devTypeId` — ver [`HuaweiDevTypeId`](#/components/schemas/HuaweiDevTypeId).
+      operationId: huaweiDevList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationCodes]
+              properties:
+                stationCodes: { type: string, example: "NE=123,NE=456" }
+      responses:
+        "200":
+          description: Lista de dispositivos.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/HuaweiEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/HuaweiDevice" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDevRealKpi:
+    post:
+      tags: [Huawei · Device]
+      summary: Real-Time Device Data
+      description: |
+        KPIs en tiempo casi real para un set de dispositivos. Se puede filtrar
+        por `devIds` **o** por `sns` (seriales) — **no ambos**. Requiere
+        `devTypeId` para que Huawei sepa qué subset de campos devolver (los
+        campos cambian según sea inversor string, SmartAssistant, ESS, etc.).
+      operationId: huaweiDevRealKpi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devTypeId]
+              properties:
+                devIds:    { type: string, description: "IDs separados por coma (máx 100).", example: "1000000033028037" }
+                sns:       { type: string, description: "Seriales separados por coma (alternativa a devIds).", example: "102061008190EJ100003" }
+                devTypeId: { $ref: "#/components/schemas/HuaweiDevTypeId" }
+      responses:
+        "200":
+          description: KPIs por dispositivo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDevHistoryKpi:
+    post:
+      tags: [Huawei · Device]
+      deprecated: true
+      summary: "(Deprecated) Historical Device Data"
+      description: |
+        Reemplazado por
+        [`/rest/openapi/pvms/nbi/v1/device/history`](#/Huawei%20%C2%B7%20Device/huaweiDeviceHistory).
+      operationId: huaweiDevHistoryKpi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds, devTypeId, startTime, endTime]
+              properties:
+                devIds:    { type: string }
+                devTypeId: { $ref: "#/components/schemas/HuaweiDevTypeId" }
+                startTime: { type: integer, description: "ms unix epoch" }
+                endTime:   { type: integer, description: "ms unix epoch" }
+      responses:
+        "200":
+          description: Serie histórica (legacy).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/rest/openapi/pvms/nbi/v1/device/history:
+    post:
+      tags: [Huawei · Device]
+      summary: Historical Device Data (reemplaza a `getDevHistoryKpi`)
+      operationId: huaweiDeviceHistory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds, devTypeId, startTime, endTime]
+              properties:
+                devIds:    { type: string, description: "Máx 10 por request." }
+                devTypeId: { $ref: "#/components/schemas/HuaweiDevTypeId" }
+                startTime: { type: integer, description: "ms unix epoch" }
+                endTime:   { type: integer, description: "ms unix epoch" }
+      responses:
+        "200":
+          description: Serie histórica por dispositivo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Huawei FusionSolar · KPI (series agregadas)
+  # ═══════════════════════════════════════════════════════════
+  /huawei/thirdData/getKpiStationHour:
+    post:
+      tags: [Huawei · KPI]
+      summary: Hourly Plant Data
+      operationId: huaweiKpiStationHour
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs agregados por hora.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getKpiStationDay:
+    post:
+      tags: [Huawei · KPI]
+      summary: Daily Plant Data
+      operationId: huaweiKpiStationDay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs agregados por día.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getKpiStationMonth:
+    post:
+      tags: [Huawei · KPI]
+      summary: Monthly Plant Data
+      operationId: huaweiKpiStationMonth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs agregados por mes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getKpiStationYear:
+    post:
+      tags: [Huawei · KPI]
+      summary: Yearly Plant Data
+      operationId: huaweiKpiStationYear
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs agregados por año.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDevKpiDay:
+    post:
+      tags: [Huawei · KPI]
+      summary: Daily Device Data
+      operationId: huaweiDevKpiDay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiDevKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs de dispositivo por día.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDevKpiMonth:
+    post:
+      tags: [Huawei · KPI]
+      summary: Monthly Device Data
+      operationId: huaweiDevKpiMonth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiDevKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs de dispositivo por mes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDevKpiYear:
+    post:
+      tags: [Huawei · KPI]
+      summary: Yearly Device Data
+      operationId: huaweiDevKpiYear
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HuaweiDevKpiTimeRequest" }
+      responses:
+        "200":
+          description: KPIs de dispositivo por año.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Huawei FusionSolar · Alarm
+  # ═══════════════════════════════════════════════════════════
+  /huawei/thirdData/getAlarmList:
+    post:
+      tags: [Huawei · Alarm]
+      summary: Active Alarms API
+      description: |
+        Lista de alarmas activas. El parámetro `language` soporta los locales
+        `en_US` (default), `zh_CN`, `ja_JP`, `nl_NL`, `de_DE`, `fr_FR`, `it_IT`,
+        `pl_PL`, `pt_PT`, `es_ES`, `hu_HU`, `vi_VN`, `tr_TR`, `uk_UA`, `zh_TW`
+        y `ko_KR`.
+      operationId: huaweiAlarmList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationCodes, beginTime, endTime]
+              properties:
+                stationCodes: { type: string, description: "Máx 100 separados por coma." }
+                beginTime:    { type: integer, description: "ms unix epoch" }
+                endTime:      { type: integer, description: "ms unix epoch" }
+                language:
+                  type: string
+                  default: en_US
+                  enum: [en_US, zh_CN, ja_JP, nl_NL, de_DE, fr_FR, it_IT, pl_PL, pt_PT, es_ES, hu_HU, vi_VN, tr_TR, uk_UA, zh_TW, ko_KR]
+      responses:
+        "200":
+          description: Listado de alarmas activas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ═══════════════════════════════════════════════════════════
+  # Huawei FusionSolar · Control (configuración + tareas asíncronas)
+  # ═══════════════════════════════════════════════════════════
+  /huawei/thirdData/getDevBatteryWorkMode:
+    post:
+      tags: [Huawei · Control]
+      summary: Query Battery Working Mode
+      operationId: huaweiBatteryWorkModeQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds]
+              properties:
+                devIds: { type: string, description: "IDs separados por coma." }
+      responses:
+        "200":
+          description: Modo actual de trabajo de la batería.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/setDevBatteryWorkMode:
+    post:
+      tags: [Huawei · Control]
+      summary: Set Battery Working Mode
+      operationId: huaweiBatteryWorkModeSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds, mode]
+              properties:
+                devIds: { type: string }
+                mode:   { type: string, description: "Modo definido por Huawei (ej. `adaptive`, `forcedChg`, `forcedDchg`)." }
+      responses:
+        "200":
+          description: ID de tarea asíncrona de control.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/setDevBatteryParam:
+    post:
+      tags: [Huawei · Control]
+      summary: Set Battery Parameters (SOC mínimo, modo de descarga, etc.)
+      operationId: huaweiBatteryParamSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds]
+              properties:
+                devIds:           { type: string }
+                chargeDischargeMode: { type: string }
+                socMin:           { type: number }
+                socMax:           { type: number }
+      responses:
+        "200":
+          description: Comando asíncrono encolado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDevActivePowerCtrlMode:
+    post:
+      tags: [Huawei · Control]
+      summary: Query Inverter Active Power Control Mode
+      operationId: huaweiInverterActivePowerQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds]
+              properties:
+                devIds: { type: string }
+      responses:
+        "200":
+          description: Modo de control de potencia activa.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/setDevActivePowerCtrlMode:
+    post:
+      tags: [Huawei · Control]
+      summary: Set Inverter Active Power Control Mode
+      operationId: huaweiInverterActivePowerSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds, ctrlMode]
+              properties:
+                devIds:   { type: string }
+                ctrlMode: { type: string, description: "Código del modo (ver doc Huawei)." }
+                value:    { type: number, description: "Setpoint (%) cuando aplica." }
+      responses:
+        "200":
+          description: Comando asíncrono encolado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/sendDispatchTask:
+    post:
+      tags: [Huawei · Control]
+      summary: Enviar tarea de dispatch (carga/descarga programada)
+      description: |
+        Programa una tarea de carga o descarga de batería con ventana horaria
+        y potencia objetivo. La respuesta incluye el `taskId` para consultar
+        estado.
+      operationId: huaweiSendDispatchTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [devIds, taskType, startTime, endTime]
+              properties:
+                devIds:    { type: string }
+                taskType:  { type: string, description: "`charge` | `discharge`." }
+                startTime: { type: integer, description: "ms unix epoch" }
+                endTime:   { type: integer, description: "ms unix epoch" }
+                power:     { type: number, description: "Potencia objetivo (W)." }
+      responses:
+        "200":
+          description: Tarea aceptada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /huawei/thirdData/getDispatchTaskResult:
+    post:
+      tags: [Huawei · Control]
+      summary: Consultar estado de una tarea de dispatch
+      operationId: huaweiGetDispatchTaskResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskId]
+              properties:
+                taskId: { type: string }
+      responses:
+        "200":
+          description: Estado de la tarea.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HuaweiEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+components:
+  securitySchemes:
+    teamApiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        API key del equipo (formato `tk_xxxxxxxx`). Se entrega **una por
+        equipo** mediante QR dentro del kit de bienvenida. El middleware
+        **no usa** el prefijo `Bearer`; envía el token pelado.
+
+  parameters:
+    GrowattPage:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+
+  responses:
+    Unauthorized:
+      description: Falta el header `Authorization` o la API key es inválida.
+      content:
+        text/plain:
+          schema: { type: string }
+          example: "Unauthorized"
+    ProviderNotFound:
+      description: El slug del proveedor no existe. Revisa la sección **Slugs de proveedor**.
+      content:
+        text/plain:
+          schema: { type: string }
+          example: "Not Found"
+    MethodNotAllowed:
+      description: |
+        Método HTTP no permitido. El middleware solo permite:
+        - `GET` para todos los proveedores.
+        - `POST` adicional para `/deye/*` y `/huawei/*`.
+      content:
+        text/plain:
+          schema: { type: string }
+          example: "Method Not Allowed"
+    GrowattOk:
+      description: Respuesta Growatt con el envelope estándar `{error_code, error_msg, data}`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/GrowattEnvelope" }
+
+  schemas:
+    # ── Growatt ──
+    GrowattEnvelope:
+      type: object
+      description: Envelope estándar de Growatt (`error_code`, `error_msg`, `data`).
+      required: [error_code, error_msg]
+      properties:
+        error_code:
+          type: integer
+          description: 0 = éxito. Cualquier otro valor es un error lógico del proveedor.
+          example: 0
+        error_msg:
+          type: string
+          example: ""
+        data:
+          description: Payload específico del endpoint (puede ser objeto, array o string vacío cuando hay error).
+          nullable: true
+
+    GrowattPlantDataResponse:
+      allOf:
+        - $ref: "#/components/schemas/GrowattEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/GrowattPlantData" }
+
+    GrowattPlantData:
+      type: object
+      description: |
+        Shape capturado en vivo por `scripts/explore-middleware.ts`. Los
+        campos numéricos a veces llegan como `number` y a veces como `string`;
+        hay que normalizar en cliente.
+      properties:
+        current_power:       { description: "Potencia AC instantánea (kW).", oneOf: [{ type: number }, { type: string }], example: 0 }
+        today_energy:        { description: "Energía producida hoy (kWh).",   oneOf: [{ type: number }, { type: string }], example: "0" }
+        monthly_energy:      { oneOf: [{ type: number }, { type: string }], example: "0" }
+        yearly_energy:       { oneOf: [{ type: number }, { type: string }], example: "0" }
+        total_energy:        { oneOf: [{ type: number }, { type: string }], example: "93890" }
+        peak_power_actual:   { description: "Potencia pico histórica (kW).",  oneOf: [{ type: number }, { type: string }], example: 50 }
+        last_update_time:    { description: "Timestamp en timezone de la planta (`YYYY-MM-DD HH:mm:ss`).", type: string, example: "2025-04-11 11:03:27" }
+        carbon_offset:       { oneOf: [{ type: number }, { type: string }], example: "0" }
+        timezone:            { type: string, example: "GMT-5" }
+        efficiency:          { oneOf: [{ type: number }, { type: string }], example: "" }
+
+    GrowattPlantListItem:
+      type: object
+      description: Elemento del array `data.plants[]` cuando el listado llega decodificado.
+      properties:
+        plant_id:    { type: integer }
+        plant_name:  { type: string }
+        country:     { type: string }
+        city:        { type: string }
+        latitude_f:  { type: number, nullable: true }
+        longitude_f: { type: number, nullable: true }
+        total_energy: { type: string }
+
+    # ── DeyeCloud ──
+    DeyePageRequest:
+      type: object
+      required: [page, size]
+      properties:
+        page: { type: integer, minimum: 1, example: 1 }
+        size: { type: integer, minimum: 1, maximum: 100, example: 20 }
+
+    DeyeError:
+      type: object
+      properties:
+        code:      { type: string, example: "2101008" }
+        msg:       { type: string, example: "invalid param type" }
+        success:   { type: boolean, example: false }
+        requestId: { type: string, example: "af042e17246ef5a2" }
+
+    DeyeStation:
+      type: object
+      properties:
+        id:                { oneOf: [{ type: integer }, { type: string }] }
+        name:              { type: string }
+        locationLat:       { type: number }
+        locationLng:       { type: number }
+        locationAddress:   { type: string }
+        installedCapacity: { type: number, description: "Capacidad instalada en kW." }
+        connectionStatus:
+          type: string
+          enum: [NORMAL, PARTIAL_OFFLINE, ALL_OFFLINE]
+        generationPower:   { type: number, description: "Potencia generada en W." }
+        lastUpdateTime:    { type: integer, description: "Unix epoch (segundos)." }
+
+    DeyeStationLatestResp:
+      type: object
+      properties:
+        success:             { type: boolean }
+        generationPower:     { type: number, description: "Potencia generada (W)." }
+        consumptionPower:    { type: number }
+        batteryPower:        { type: number }
+        batterySOC:          { type: number, nullable: true }
+        irradiateIntensity:  { type: number, nullable: true }
+        lastUpdateTime:      { type: integer, description: "Unix epoch (segundos)." }
+
+    # ── Huawei FusionSolar ──
+    HuaweiEnvelope:
+      type: object
+      description: |
+        Envelope estándar de Huawei FusionSolar. `success=true` y
+        `failCode=0` indican éxito; cualquier otro `failCode` documenta el
+        error en `message` (ver doc oficial por tabla de códigos).
+      required: [success, failCode]
+      properties:
+        success:  { type: boolean, example: true }
+        failCode: { type: integer, example: 0 }
+        message:  { type: string, nullable: true }
+        params:   { type: object, additionalProperties: true, nullable: true }
+        data:
+          description: Payload específico del endpoint (objeto o array).
+          nullable: true
+
+    HuaweiStationRealKpi:
+      type: object
+      properties:
+        day_power:          { type: number, description: "Energía del día (kWh)." }
+        month_power:        { type: number, description: "Energía del mes (kWh)." }
+        total_power:        { type: number, description: "Energía total histórica (kWh)." }
+        day_income:         { type: number, description: "Ingresos del día." }
+        total_income:       { type: number, description: "Ingresos totales." }
+        day_on_grid_energy: { type: number, description: "Energía entregada a la red en el día (kWh)." }
+        day_use_energy:     { type: number, description: "Energía auto-consumida en el día (kWh)." }
+        real_health_state:
+          type: integer
+          description: "1 = disconnected · 2 = faulty · 3 = healthy"
+          enum: [1, 2, 3]
+
+    HuaweiDevice:
+      type: object
+      properties:
+        id:          { type: integer, description: "Device ID interno de FusionSolar." }
+        devName:     { type: string }
+        stationCode: { type: string }
+        esnCode:     { type: string, description: "Serial del equipo." }
+        devTypeId:   { $ref: "#/components/schemas/HuaweiDevTypeId" }
+        softwareVersion: { type: string }
+        invType:     { type: string, nullable: true }
+        longitude:   { type: number, nullable: true }
+        latitude:    { type: number, nullable: true }
+
+    HuaweiDevTypeId:
+      type: integer
+      description: |
+        Tipo de dispositivo según Huawei FusionSolar. Subset más usado:
+
+        | ID   | Descripción                     |
+        |------|---------------------------------|
+        | 1    | String inverter                 |
+        | 2    | SUN2000 string inverter         |
+        | 8    | Environmental Monitoring Unit   |
+        | 10   | Power meter                     |
+        | 13   | SmartLogger                     |
+        | 16   | Transformer                     |
+        | 17   | Battery                         |
+        | 22   | SmartLogger3000                 |
+        | 37   | Grid meter                      |
+        | 38   | PID                             |
+        | 39   | ESS (Energy Storage System)     |
+        | 40   | SmartACU                        |
+        | 41   | Optimizer                       |
+        | 45   | String Inverter v2              |
+        | 46   | Smart Power Sensor              |
+        | 47   | SmartAssistant                  |
+        | 62   | Combiner box                    |
+        | 63   | Weather station                 |
+        | 70   | Dongle                          |
+        | 60001| Residential inverter            |
+        | 60003| Hybrid inverter                 |
+        | 23070| Smart Meter v3                  |
+      enum: [1, 2, 8, 10, 13, 16, 17, 22, 37, 38, 39, 40, 41, 45, 46, 47, 62, 63, 70, 60001, 60003, 23070]
+
+    HuaweiKpiTimeRequest:
+      type: object
+      required: [stationCodes, collectTime]
+      properties:
+        stationCodes: { type: string, description: "Hasta 100 separados por coma." }
+        collectTime:
+          type: integer
+          description: |
+            Marca de tiempo (ms unix epoch) del bucket consultado. Huawei
+            redondea al inicio del intervalo (hora / día / mes / año).
+          example: 1776412800000
+
+    HuaweiDevKpiTimeRequest:
+      type: object
+      required: [devIds, devTypeId, collectTime]
+      properties:
+        devIds:      { type: string, description: "IDs separados por coma." }
+        devTypeId:   { $ref: "#/components/schemas/HuaweiDevTypeId" }
+        collectTime: { type: integer, description: "ms unix epoch del bucket." }

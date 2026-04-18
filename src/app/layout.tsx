@@ -1,10 +1,33 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SunHub · Techos Rentables",
   description:
     "Plataforma unificada de operación solar — 200+ plantas, múltiples marcas, un solo sistema.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "SunHub",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SunHub",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#006b2c",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

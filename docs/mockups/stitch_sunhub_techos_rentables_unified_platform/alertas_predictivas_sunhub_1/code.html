@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SunHub - Predicciones de Mantenimiento</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#16A34A', foreground: '#ffffff' },
+                        secondary: { DEFAULT: '#FACC15', foreground: '#000000' },
+                        info: '#0EA5E9',
+                        danger: '#DC2626',
+                        warning: '#F59E0B',
+                        success: '#16A34A',
+                        ai: '#8B5CF6'
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "12px",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        h1, h2, h3, .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .risk-gradient { background: linear-gradient(to right, #16A34A, #FACC15, #DC2626); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="antialiased text-slate-900">
+<!-- Sidebar Section -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 bg-slate-900 shadow-xl flex flex-col py-6 z-50 font-sans antialiased text-sm">
+<div class="px-6 mb-8 flex items-center gap-2">
+<span class="text-xl font-black text-white">SunHub</span>
+<span class="text-green-500 font-bold">⚡</span>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="solar_power">solar_power</span>
+<span>Plantas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white bg-gradient-to-r from-purple-600 to-green-600 rounded-lg mx-2 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="query_stats" style="font-variation-settings: 'FILL' 1;">query_stats</span>
+<span>Predicciones ✨</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="settings_input_component">settings_input_component</span>
+<span>Dispositivos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span>Reportes</span>
+</a>
+<div class="pt-4 pb-2 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Inteligencia Artificial</div>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined text-purple-400" data-icon="smart_toy">smart_toy</span>
+<span>Copilot AI</span>
+</a>
+</nav>
+<div class="mt-auto px-2 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+<span>Onboarding</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Ajustes</span>
+</a>
+<div class="mt-4 px-4 py-3 bg-slate-800/50 rounded-xl flex items-center gap-3">
+<img alt="Usuario SunHub" class="w-8 h-8 rounded-full border border-slate-700" data-alt="close-up portrait of a professional operations manager in a tech company environment, soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3Im5r75vmU9Yh7vTFwifvss1OZNPlVjxz29_nXOTn81KCwivclQiJkMrqvv0-T3DDxOVu_GfleqowxeRYBrzqgTRn9atGH0zAoX9BF4epIXCl_a66ccxPWB9fW_E2IqvQ3c_6UVX6cpH-bc7wxKX6dT027Jr68_fxjMBb6aW-uWKazY783KCOMy70xukkl4DKxYP_fSkmyZ9t1cMdU7lgzSBaNMmo3IPazuIlM338J5-9MGXC502XUDFra1RPcu7cup1TDpEmsxQ"/>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-semibold text-white truncate">Operaciones CO</p>
+<p class="text-[10px] text-slate-500 truncate">Sede Bogotá</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="ml-64 min-h-screen">
+<!-- Header Section -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm flex items-center justify-between px-8 h-16 font-sans text-sm font-medium">
+<div class="flex items-center gap-4">
+<nav class="flex items-center gap-2 text-slate-500">
+<span>SunHub</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-slate-900 font-semibold">Predicciones ✨</span>
+</nav>
+<div class="h-4 w-[1px] bg-slate-200 mx-2"></div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">Huawei</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">Growatt</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">SRNE</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative">
+<button class="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined text-slate-500 text-sm">calendar_today</span>
+<span class="text-xs">Próximos 7 días</span>
+<span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
+</button>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-500 cursor-pointer hover:text-slate-900" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-slate-500 cursor-pointer hover:text-slate-900" data-icon="help_outline">help_outline</span>
+</div>
+</div>
+</header>
+<!-- Canvas Area -->
+<div class="pt-24 pb-12 px-8 max-w-[1600px] mx-auto">
+<!-- Page Title & Subtitle -->
+<div class="mb-8">
+<h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+                    Alertas predictivas
+                    <span class="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold uppercase tracking-wider">AI Powered</span>
+</h1>
+<p class="text-slate-500 mt-1 max-w-3xl">
+                    IA detectó 18 dispositivos con riesgo de falla en los próximos 7 días · modelo entrenado con 2.4M lecturas históricas
+                </p>
+</div>
+<!-- KPI Grid -->
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-500 uppercase">Predicciones activas</span>
+<span class="material-symbols-outlined text-purple-500" data-icon="precision_manufacturing">precision_manufacturing</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black">18</span>
+<span class="text-[10px] font-bold text-slate-400">CRÍTICAS</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-500 uppercase">Precisión</span>
+<span class="material-symbols-outlined text-info" data-icon="verified">verified</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black">92.4%</span>
+<span class="text-[10px] font-bold text-green-600">↑ 1.2%</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-500 uppercase">Fallos evitados</span>
+<span class="material-symbols-outlined text-success" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black">11</span>
+<span class="text-[10px] font-bold text-green-600">SEMANA</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-500 uppercase">Ahorro Estimado</span>
+<span class="material-symbols-outlined text-amber-500" data-icon="payments">payments</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black">$8.7M</span>
+<span class="text-[10px] font-bold text-slate-400 tracking-tighter uppercase">COP</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-lg shadow-sm border border-slate-100">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-500 uppercase">Tiempo anticipación</span>
+<span class="material-symbols-outlined text-purple-500" data-icon="history_toggle_off">history_toggle_off</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black">3.2</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">Días Promedio</span>
+</div>
+</div>
+</div>
+<!-- Visualization Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<!-- Heatmap Chart -->
+<div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-slate-100 p-6">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="font-bold text-slate-900">Mapa de calor de riesgo - próximos 7 días</h3>
+<p class="text-xs text-slate-500">Probabilidad de falla por dispositivo</p>
+</div>
+<div class="flex gap-1">
+<span class="text-[10px] text-slate-400 mr-2 uppercase self-center">Leyenda:</span>
+<div class="w-3 h-3 rounded-sm bg-green-500"></div>
+<div class="w-3 h-3 rounded-sm bg-amber-400"></div>
+<div class="w-3 h-3 rounded-sm bg-red-500"></div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex border-b border-slate-100 pb-2 text-[10px] font-bold text-slate-400 uppercase">
+<div class="w-32">Dispositivo</div>
+<div class="flex-1 grid grid-cols-7 gap-1 text-center">
+<div>D1</div><div>D2</div><div>D3</div><div>D4</div><div>D5</div><div>D6</div><div>D7</div>
+</div>
+</div>
+<!-- Rows -->
+<div class="flex items-center py-1">
+<div class="w-32 text-xs font-medium truncate">HYML-MIC-011</div>
+<div class="flex-1 grid grid-cols-7 gap-1">
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-green-200 rounded"></div>
+<div class="h-6 bg-amber-200 rounded"></div>
+<div class="h-6 bg-amber-400 rounded"></div>
+<div class="h-6 bg-red-400 rounded"></div>
+<div class="h-6 bg-red-500 rounded"></div>
+<div class="h-6 bg-red-600 rounded"></div>
+</div>
+</div>
+<div class="flex items-center py-1">
+<div class="w-32 text-xs font-medium truncate">GW-INV-X2-01</div>
+<div class="flex-1 grid grid-cols-7 gap-1">
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-amber-100 rounded"></div>
+<div class="h-6 bg-amber-300 rounded"></div>
+<div class="h-6 bg-amber-400 rounded"></div>
+<div class="h-6 bg-amber-200 rounded"></div>
+</div>
+</div>
+<div class="flex items-center py-1">
+<div class="w-32 text-xs font-medium truncate">HUA-SUN-2000</div>
+<div class="flex-1 grid grid-cols-7 gap-1">
+<div class="h-6 bg-green-50 rounded"></div>
+<div class="h-6 bg-green-50 rounded"></div>
+<div class="h-6 bg-green-50 rounded"></div>
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-green-200 rounded"></div>
+<div class="h-6 bg-green-200 rounded"></div>
+</div>
+</div>
+<div class="flex items-center py-1">
+<div class="w-32 text-xs font-medium truncate">SRNE-PWM-02</div>
+<div class="flex-1 grid grid-cols-7 gap-1">
+<div class="h-6 bg-amber-100 rounded"></div>
+<div class="h-6 bg-amber-200 rounded"></div>
+<div class="h-6 bg-amber-400 rounded"></div>
+<div class="h-6 bg-amber-500 rounded"></div>
+<div class="h-6 bg-red-300 rounded"></div>
+<div class="h-6 bg-green-100 rounded"></div>
+<div class="h-6 bg-green-100 rounded"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Brand Risk Distribution -->
+<div class="bg-white rounded-lg shadow-sm border border-slate-100 p-6 flex flex-col">
+<h3 class="font-bold text-slate-900 mb-6">Distribución de riesgo por marca</h3>
+<div class="flex-1 space-y-6">
+<!-- Hoymiles -->
+<div>
+<div class="flex justify-between text-xs mb-2">
+<span class="font-bold">Hoymiles</span>
+<span class="text-danger font-black">72%</span>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-danger h-full rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<!-- SRNE -->
+<div>
+<div class="flex justify-between text-xs mb-2">
+<span class="font-bold">SRNE</span>
+<span class="text-warning font-black">65%</span>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-warning h-full rounded-full" style="width: 65%"></div>
+</div>
+</div>
+<!-- Growatt -->
+<div>
+<div class="flex justify-between text-xs mb-2">
+<span class="font-bold">Growatt</span>
+<span class="text-warning font-black">58%</span>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-warning h-full rounded-full" style="width: 58%"></div>
+</div>
+</div>
+<!-- DeyeCloud -->
+<div>
+<div class="flex justify-between text-xs mb-2">
+<span class="font-bold">DeyeCloud</span>
+<span class="text-secondary font-black">41%</span>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 41%"></div>
+</div>
+</div>
+</div>
+<div class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-100">
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-purple-600 text-sm">smart_toy</span>
+<p class="text-[11px] text-purple-800 leading-relaxed font-medium">
+                                🤖 Hoymiles microinversores muestran degradación progresiva acelerada.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Table Section -->
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+<div class="xl:col-span-3 bg-white rounded-lg shadow-sm border border-slate-100 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+<h3 class="font-bold text-slate-900">Predicciones de falla priorizadas</h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded hover:bg-slate-50">Filtros</button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded">Exportar Reporte</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+<th class="px-6 py-3">Riesgo</th>
+<th class="px-6 py-3">Dispositivo</th>
+<th class="px-6 py-3">Cliente</th>
+<th class="px-6 py-3">Marca</th>
+<th class="px-6 py-3">Prob.</th>
+<th class="px-6 py-3">ETA</th>
+<th class="px-6 py-3">Causa</th>
+<th class="px-6 py-3 text-right">Acción</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-slate-50/50 transition-colors bg-purple-50/20">
+<td class="px-6 py-4">
+<span class="flex h-2 w-2 rounded-full bg-danger animate-pulse"></span>
+</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-slate-900">HYML-MIC-011</div>
+<div class="text-[10px] text-slate-400">ID: 99281</div>
+</td>
+<td class="px-6 py-4 text-xs">Bavaria Tibitó</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold">Hoymiles</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-black text-danger">94%</span>
+</td>
+<td class="px-6 py-4 text-xs font-medium">1.2 días</td>
+<td class="px-6 py-4 text-[10px] max-w-[150px] truncate">Temp. Crítica Inversor</td>
+<td class="px-6 py-4 text-right">
+<button class="text-purple-600 hover:text-purple-800">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<span class="flex h-2 w-2 rounded-full bg-danger"></span>
+</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-slate-900">SRNE-INV-004</div>
+<div class="text-[10px] text-slate-400">ID: 88122</div>
+</td>
+<td class="px-6 py-4 text-xs">Carvajal Cali</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold">SRNE</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-black text-danger">88%</span>
+</td>
+<td class="px-6 py-4 text-xs font-medium">2.5 días</td>
+<td class="px-6 py-4 text-[10px] max-w-[150px] truncate">Pico Corriente DC</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<span class="flex h-2 w-2 rounded-full bg-warning"></span>
+</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-slate-900">GW-3000TL-X</div>
+<div class="text-[10px] text-slate-400">ID: 77211</div>
+</td>
+<td class="px-6 py-4 text-xs">Postobón Girón</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold">Growatt</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-black text-warning">76%</span>
+</td>
+<td class="px-6 py-4 text-xs font-medium">3.8 días</td>
+<td class="px-6 py-4 text-[10px] max-w-[150px] truncate">Degradación Capacitor</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<span class="flex h-2 w-2 rounded-full bg-warning"></span>
+</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-slate-900">HUA-2000-10K</div>
+<div class="text-[10px] text-slate-400">ID: 66100</div>
+</td>
+<td class="px-6 py-4 text-xs">Homecenter Suba</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold">Huawei</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-black text-warning">64%</span>
+</td>
+<td class="px-6 py-4 text-xs font-medium">4.1 días</td>
+<td class="px-6 py-4 text-[10px] max-w-[150px] truncate">Ruido Señal AC</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<span class="flex h-2 w-2 rounded-full bg-secondary"></span>
+</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-slate-900">DEYE-SUN-600</div>
+<div class="text-[10px] text-slate-400">ID: 55432</div>
+</td>
+<td class="px-6 py-4 text-xs">Éxito Itagüí</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold">DeyeCloud</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-black text-slate-600">42%</span>
+</td>
+<td class="px-6 py-4 text-xs font-medium">5.5 días</td>
+<td class="px-6 py-4 text-[10px] max-w-[150px] truncate">Anomalía Ventilación</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<span class="flex h-2 w-2 rounded-full bg-green-500"></span>
+</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-slate-900">GW-8000-MT</div>
+<div class="text-[10px] text-slate-400">ID: 44123</div>
+</td>
+<td class="px-6 py-4 text-xs">Manuelita S.A</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold">Growatt</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-black text-green-600">18%</span>
+</td>
+<td class="px-6 py-4 text-xs font-medium">6.8 días</td>
+<td class="px-6 py-4 text-[10px] max-w-[150px] truncate">Preventivo Nivel 1</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Detail Panel -->
+<div class="xl:col-span-1 space-y-6">
+<div class="bg-white rounded-lg shadow-sm border border-slate-100 p-6">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="text-sm font-bold text-slate-900">Predicción seleccionada</h3>
+<p class="text-[11px] font-black text-purple-600 uppercase">HYML-MIC-011</p>
+</div>
+<span class="material-symbols-outlined text-purple-500" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div class="mb-6">
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] font-bold text-slate-500 uppercase">Tendencia de falla</span>
+<span class="text-[10px] font-bold text-danger">Riesgo Alto</span>
+</div>
+<div class="h-24 bg-slate-50 rounded-lg flex items-end gap-1 p-2 border border-slate-100">
+<div class="flex-1 bg-slate-200 rounded-t h-4"></div>
+<div class="flex-1 bg-slate-200 rounded-t h-6"></div>
+<div class="flex-1 bg-slate-300 rounded-t h-10"></div>
+<div class="flex-1 bg-amber-400 rounded-t h-16"></div>
+<div class="flex-1 bg-danger rounded-t h-20"></div>
+<div class="flex-1 bg-danger rounded-t h-22"></div>
+</div>
+</div>
+<div class="space-y-4 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-600 text-sm">psychology</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-500 uppercase">Factores AI</p>
+<p class="text-xs text-slate-900">Ciclos térmicos anómalos (88%)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-600 text-sm">history</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-500 uppercase">Historial</p>
+<p class="text-xs text-slate-900">2 alertas previas ignoradas</p>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<button class="w-full py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold transition-all hover:bg-slate-800">
+                                Programar Mantenimiento
+                            </button>
+<button class="w-full py-2.5 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all hover:bg-slate-50">
+                                Descartar Alerta
+                            </button>
+</div>
+</div>
+<!-- Small Info Box -->
+<div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-5 text-white shadow-lg">
+<span class="material-symbols-outlined text-white mb-2" data-icon="eco">eco</span>
+<h4 class="text-sm font-bold mb-1">Impacto Ambiental</h4>
+<p class="text-xs text-green-50 leading-relaxed">
+                            Al evitar esta falla, garantizas 420kWh de generación limpia ininterrumpida esta semana.
+                        </p>
+</div>
+</div>
+</div>
+<!-- Footer Section -->
+<footer class="mt-12 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest gap-4">
+<div class="flex items-center gap-6">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">smart_toy</span>
+                        Modelo v2.3
+                    </span>
+<span>Última recalibración hace 6 horas</span>
+<span>Motor: SunHub-Predict v4</span>
+</div>
+<div class="flex gap-4">
+<a class="hover:text-slate-900 transition-colors" href="#">Estado del Sistema</a>
+<a class="hover:text-slate-900 transition-colors" href="#">API Docs</a>
+<a class="hover:text-slate-900 transition-colors" href="#">Soporte</a>
+</div>
+</footer>
+</div>
+</main>
+<!-- Contextual FAB (Only for appropriate context) -->
+<button class="fixed bottom-8 right-8 bg-slate-900 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all active:scale-95 group">
+<span class="material-symbols-outlined" data-icon="bolt">bolt</span>
+<span class="absolute right-full mr-4 px-3 py-1 bg-slate-900 text-white rounded-md text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Quick Analysis</span>
+</button>
+</body></html>

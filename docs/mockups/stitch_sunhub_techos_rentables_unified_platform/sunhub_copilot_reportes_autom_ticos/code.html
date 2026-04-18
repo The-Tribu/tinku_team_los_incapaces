@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SunHub - Copilot AI &amp; Reportes Automatizados</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#16A34A",
+                        accent: "#FACC15",
+                        info: "#0EA5E9",
+                        danger: "#DC2626",
+                        success: "#16A34A",
+                        warning: "#F59E0B",
+                        surface: "#F8FAFC"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ai-shimmer {
+            background: linear-gradient(90deg, rgba(22, 163, 74, 0.05) 0%, rgba(250, 204, 21, 0.05) 50%, rgba(22, 163, 74, 0.05) 100%);
+            background-size: 200% 100%;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-body text-slate-900">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full z-40 flex flex-col bg-white border-r border-slate-200 w-64 shadow-sm h-screen">
+<div class="p-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">solar_power</span>
+</div>
+<div>
+<h1 class="text-2xl font-black text-green-600 tracking-tight">SunHub</h1>
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Operaciones de Energía</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1 mt-4">
+<!-- Nav Items based on JSON -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-all duration-200 font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-all duration-200 font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="solar_power">solar_power</span> Plantas
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-all duration-200 font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="notifications_active">notifications_active</span> Alarmas
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-all duration-200 font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span> Reportes
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-all duration-200 font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span> Clientes
+            </a>
+<!-- ACTIVE ITEM -->
+<a class="flex items-center gap-3 px-4 py-3 bg-green-50 text-green-700 border-r-4 border-green-600 font-bold font-sans text-sm rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span> Copilot AI
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-all duration-200 font-sans text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span> Configuración
+            </a>
+</nav>
+<div class="p-4 border-t border-slate-100 mt-auto">
+<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+<div class="relative">
+<img class="w-10 h-10 rounded-full object-cover grayscale" data-alt="Professional portrait of Robert Triana, operations manager in a corporate setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1rjkNL_6DLhBHxXnvE3L1xJ84ZPzepBzWxRnlfSEPyH71SJc2SoweF4dB0mMWqQrGZdHfJCTQ0e5qWzwXUnzG96ovGgCx6_nWpkWxM-hg4JeUnLOFAw6h7Wnw9BGB9GYM09s4uHHI_BfuCDJKG-1z0G1Tn2A68R-zR9ceMHzliTmZTX__r1frcUKiDCOERq22AD9-2ivC9vE1bS09AZZbbivsB67gM2Rz6o7iOjcQwC16M-oWoyv0x1Y8IyyoUMukoY1UlYZmYfY"/>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+</div>
+<div class="overflow-hidden">
+<p class="text-xs font-bold text-slate-900 truncate">Robert Triana</p>
+<p class="text-[10px] text-slate-500 truncate">Ops Manager</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopNavBar Shell -->
+<header class="flex justify-between items-center px-8 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
+<div class="flex items-center gap-4">
+<nav class="flex items-center text-xs font-medium text-slate-500">
+<span>SunHub</span>
+<span class="material-symbols-outlined text-[14px] mx-1">chevron_right</span>
+<span class="text-green-600 font-bold">Copilot AI</span>
+</nav>
+<div class="relative ml-8">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-sm w-80 focus:ring-2 focus:ring-green-500/20" placeholder="Buscar en plantas o reportes..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-5">
+<button class="relative text-slate-500 hover:text-green-600 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></span>
+</button>
+<button class="text-slate-500 hover:text-green-600 transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="h-8 w-px bg-slate-200"></div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-slate-700">Techos Rentables</span>
+<span class="material-symbols-outlined text-slate-400">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Content Split Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- LEFT COLUMN: Chat with AI -->
+<section class="w-[55%] border-r border-slate-200 flex flex-col bg-white">
+<div class="p-8 pb-4 border-b border-slate-100 ai-shimmer">
+<div class="flex items-center justify-between">
+<div>
+<h2 class="text-2xl font-black font-headline text-slate-900 flex items-center gap-2">
+                                SunHub Copilot <span class="material-symbols-outlined text-green-600" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</h2>
+<p class="text-slate-500 text-sm font-medium mt-1">
+<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></span>
+                                Conectado a 218 plantas y 1,247 dispositivos
+                            </p>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold border border-blue-100">HUWAI</span>
+<span class="px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold border border-amber-100">GROWATT</span>
+<span class="px-2 py-1 bg-slate-50 text-slate-700 rounded text-[10px] font-bold border border-slate-100">+3</span>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+<!-- User Message 1 -->
+<div class="flex justify-end">
+<div class="max-w-[85%] bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none shadow-md">
+<p class="text-sm font-medium">¿Qué clientes tienen mayor riesgo de penalización este mes?</p>
+</div>
+</div>
+<!-- AI Assistant 1 -->
+<div class="flex justify-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div class="max-w-[90%] bg-white border border-slate-200 border-l-4 border-l-green-600 p-5 rounded-2xl rounded-tl-none shadow-sm">
+<p class="text-sm text-slate-700 leading-relaxed mb-4">
+                                Identifiqué <span class="font-bold text-green-700">3 clientes</span> con alto riesgo de penalización en <span class="underline decoration-green-300">abril 2026</span>:
+                            </p>
+<div class="space-y-4">
+<div class="bg-red-50/50 p-3 rounded-lg border border-red-100">
+<div class="flex justify-between items-start mb-1">
+<span class="text-xs font-black text-slate-900 uppercase">1. Bavaria Tibitó</span>
+<span class="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-700 rounded">Riesgo Alto</span>
+</div>
+<p class="text-xs text-slate-600">PR 71.8% vs 78% contractual. Penalización estimada <span class="font-bold text-red-600">$2,400,000 COP</span>.</p>
+</div>
+<div class="bg-amber-50/50 p-3 rounded-lg border border-amber-100">
+<div class="flex justify-between items-start mb-1">
+<span class="text-xs font-black text-slate-900 uppercase">2. Carvajal Cali</span>
+<span class="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-700 rounded">Incidente</span>
+</div>
+<p class="text-xs text-slate-600">Inversor SRNE offline 45 min. Proyectada <span class="font-bold text-slate-900">$1,100,000 COP</span>.</p>
+</div>
+<div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+<p class="text-xs text-slate-600"><span class="font-black text-slate-900 uppercase">3. Postobón Yumbo</span> — Generación 38% baja. Proyectada $680,000 COP.</p>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+<span class="text-xs font-bold text-slate-500">Total exposición: <span class="text-slate-900 text-sm">$4.18M COP</span></span>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded-full border border-slate-200 text-[11px] font-bold hover:bg-slate-50 transition-colors">Notificar comercial</button>
+<button class="px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-bold hover:bg-green-700 transition-transform active:scale-95">Generar reporte</button>
+</div>
+</div>
+</div>
+</div>
+<!-- User Message 2 -->
+<div class="flex justify-end">
+<div class="max-w-[85%] bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none shadow-md">
+<p class="text-sm font-medium">Generá el reporte mensual de Grupo Éxito CD Envigado</p>
+</div>
+</div>
+<!-- AI Assistant 2 -->
+<div class="flex justify-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div class="max-w-[90%] bg-white border border-slate-200 border-l-4 border-l-green-600 p-5 rounded-2xl rounded-tl-none shadow-sm">
+<div class="flex items-center gap-2 mb-3">
+<p class="text-sm font-medium text-slate-700">Listo. Procesé 47,820 lecturas en 23s.</p>
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+</div>
+<div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+<div class="flex gap-4">
+<div class="w-20 h-28 bg-white border border-slate-200 rounded flex flex-col items-center justify-center relative overflow-hidden shrink-0 group cursor-pointer">
+<div class="w-full h-1 bg-green-600 absolute top-0"></div>
+<span class="material-symbols-outlined text-slate-300 text-4xl group-hover:scale-110 transition-transform">picture_as_pdf</span>
+<div class="mt-2 text-[8px] font-black uppercase text-slate-400">Techos Rentables</div>
+<div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors"></div>
+</div>
+<div class="flex-1">
+<h4 class="text-xs font-black text-slate-900 uppercase">Reporte Abril 2026 - Grupo Éxito CD Envigado</h4>
+<div class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
+<div>
+<p class="text-[9px] uppercase font-bold text-slate-400">Energía</p>
+<p class="text-xs font-bold text-slate-700">54,320 kWh <span class="text-green-500 text-[10px]">(+4%)</span></p>
+</div>
+<div>
+<p class="text-[9px] uppercase font-bold text-slate-400">Ahorro</p>
+<p class="text-xs font-bold text-slate-700">$26.8M COP</p>
+</div>
+<div>
+<p class="text-[9px] uppercase font-bold text-slate-400">Cumplimiento</p>
+<div class="flex items-center gap-1">
+<div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[98%]"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-600">98%</span>
+</div>
+</div>
+<div>
+<p class="text-[9px] uppercase font-bold text-slate-400">PR / Uptime</p>
+<p class="text-xs font-bold text-slate-700">84.2% / 99.8%</p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 flex gap-2">
+<button class="flex-1 flex items-center justify-center gap-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-sm">download</span> Descargar PDF
+                                    </button>
+<button class="flex-1 flex items-center justify-center gap-2 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors">
+<span class="material-symbols-outlined text-sm">mail</span> Enviar a cliente
+                                    </button>
+</div>
+</div>
+<p class="text-[11px] text-slate-400 mt-3 italic flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">eco</span>
+                                CO₂ mitigado en este periodo: 26.1 ton
+                            </p>
+</div>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-6 bg-slate-50/50 border-t border-slate-100">
+<div class="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+<button class="shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-green-400 hover:text-green-600 transition-all">Comparar Growatt vs Huawei</button>
+<button class="shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-green-400 hover:text-green-600 transition-all">Proyectar ahorros Q3</button>
+<button class="shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-green-400 hover:text-green-600 transition-all">Mejor planta del mes</button>
+</div>
+<div class="relative">
+<input class="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-5 pr-14 text-sm focus:ring-4 focus:ring-green-500/10 focus:border-green-600 shadow-sm transition-all" placeholder="Escribe tu pregunta sobre las plantas o reportes..." type="text"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-green-600 text-white rounded-xl flex items-center justify-center hover:bg-green-700 transition-transform active:scale-90 shadow-md shadow-green-200">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN: Reports Center -->
+<section class="w-[45%] flex flex-col bg-slate-50 overflow-y-auto custom-scrollbar">
+<div class="p-8">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-black font-headline text-slate-900 uppercase tracking-tight">Reportes automáticos</h2>
+<button class="flex items-center gap-1 text-xs font-bold text-green-600 hover:underline">
+<span class="material-symbols-outlined text-sm">add</span> Crear plantilla
+                        </button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="bg-slate-900 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-8xl">schedule</span>
+</div>
+<p class="text-slate-400 text-[11px] font-bold uppercase tracking-wider mb-1">Tiempo ahorrado</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black font-headline">128</span>
+<span class="text-lg font-bold text-green-400">horas</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-2">Mes de Abril 2026</p>
+</div>
+<div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 relative">
+<p class="text-slate-500 text-[11px] font-bold uppercase tracking-wider mb-1">Estado de carga</p>
+<div class="flex items-center justify-between mb-2">
+<span class="text-2xl font-black text-slate-900">98%</span>
+<span class="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-full">En tiempo real</span>
+</div>
+<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[98%]"></div>
+</div>
+<p class="text-[10px] text-slate-400 mt-2">214 de 218 generados • <span class="font-bold">ETA 3 min</span></p>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex border-b border-slate-200 mb-6">
+<button class="px-4 py-2 text-sm font-bold text-green-600 border-b-2 border-green-600">Generados</button>
+<button class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800">Programados</button>
+<button class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800">Plantillas</button>
+</div>
+<!-- Reports Grid -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Card 1 -->
+<div class="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow cursor-pointer group">
+<div class="flex justify-between items-start mb-3">
+<div class="w-8 h-8 rounded bg-slate-50 flex items-center justify-center group-hover:bg-green-50 transition-colors">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-green-600 text-xl">description</span>
+</div>
+<span class="text-[10px] font-black px-2 py-0.5 bg-green-50 text-green-700 rounded-full">✓ Enviado</span>
+</div>
+<h3 class="text-sm font-black text-slate-900 uppercase truncate">Grupo Éxito</h3>
+<div class="mt-4 flex items-center justify-between">
+<div class="w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[98%]"></div>
+</div>
+<span class="text-[11px] font-bold text-slate-600">98%</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow cursor-pointer group">
+<div class="flex justify-between items-start mb-3">
+<div class="w-8 h-8 rounded bg-slate-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-xl">description</span>
+</div>
+<span class="text-[10px] font-black px-2 py-0.5 bg-green-50 text-green-700 rounded-full">✓ Enviado</span>
+</div>
+<h3 class="text-sm font-black text-slate-900 uppercase truncate">Ecopetrol</h3>
+<div class="mt-4 flex items-center justify-between">
+<div class="w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[95%]"></div>
+</div>
+<span class="text-[11px] font-bold text-slate-600">95%</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow cursor-pointer border-dashed border-amber-300 bg-amber-50/10">
+<div class="flex justify-between items-start mb-3">
+<div class="w-8 h-8 rounded bg-amber-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-500 text-xl">edit_note</span>
+</div>
+<span class="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">📝 Borrador</span>
+</div>
+<h3 class="text-sm font-black text-slate-900 uppercase truncate">Postobón</h3>
+<div class="mt-4 flex items-center justify-between">
+<div class="w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-amber-500 w-[89%]"></div>
+</div>
+<span class="text-[11px] font-bold text-amber-600">89% ⚠</span>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-white p-4 rounded-xl border-2 border-red-100 hover:shadow-md transition-shadow cursor-pointer">
+<div class="flex justify-between items-start mb-3">
+<div class="w-8 h-8 rounded bg-red-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-red-500 text-xl">report_problem</span>
+</div>
+<span class="text-[10px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded-full">⚠ Revisar</span>
+</div>
+<h3 class="text-sm font-black text-slate-900 uppercase truncate">Bavaria</h3>
+<div class="mt-4 flex items-center justify-between">
+<div class="w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-red-500 w-[82%]"></div>
+</div>
+<span class="text-[11px] font-bold text-red-600">82% ✗</span>
+</div>
+</div>
+<!-- Card 5 -->
+<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div class="w-8 h-8 rounded bg-slate-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-xl animate-spin">sync</span>
+</div>
+<span class="text-[10px] font-black px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">⏳ Generando</span>
+</div>
+<h3 class="text-sm font-black text-slate-900 uppercase truncate">Carvajal</h3>
+<div class="mt-4">
+<div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-1/3 animate-pulse"></div>
+</div>
+</div>
+</div>
+<!-- Card 6 -->
+<div class="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow cursor-pointer group">
+<div class="flex justify-between items-start mb-3">
+<div class="w-8 h-8 rounded bg-slate-50 flex items-center justify-center group-hover:bg-green-50 transition-colors">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-green-600 text-xl">description</span>
+</div>
+<span class="text-[10px] font-black px-2 py-0.5 bg-green-50 text-green-700 rounded-full">✓ Enviado</span>
+</div>
+<h3 class="text-sm font-black text-slate-900 uppercase truncate">Crepes &amp; Waffles</h3>
+<div class="mt-4 flex items-center justify-between">
+<div class="w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[99%]"></div>
+</div>
+<span class="text-[11px] font-bold text-slate-600">99%</span>
+</div>
+</div>
+</div>
+<!-- Footer Banner -->
+<div class="mt-10 bg-green-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-20">
+<span class="material-symbols-outlined text-6xl">bar_chart_4_bars</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<div>
+<p class="text-sm font-bold">De 40 min/reporte manual → <span class="text-accent">23 seg</span> automatizado</p>
+<p class="text-[11px] text-green-100 opacity-90 mt-1 uppercase font-bold tracking-widest">130 horas/mes recuperadas para el equipo</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
+    </style>
+</body></html>

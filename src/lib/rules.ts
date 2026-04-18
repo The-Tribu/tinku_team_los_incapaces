@@ -6,6 +6,8 @@
  */
 import { prisma } from "./prisma";
 import type { CanonicalReading } from "./normalize";
+import { publishAlarm } from "./alarm-bus";
+import { fanoutAlarm } from "./notifications";
 
 export type EvalContext = {
   deviceId: string;
@@ -82,23 +84,72 @@ export async function evaluateRules(
   for (const rule of RULES) {
     const fired = rule.fires(reading, ctx);
     const existing = await prisma.alarm.findFirst({
-      where: { deviceId: ctx.deviceId, type: rule.type, resolvedAt: null },
+      where: { deviceId: ctx.deviceId, type: rule.type, resolvedAt: null, source: "rule" },
     });
     if (fired && !existing) {
-      await prisma.alarm.create({
+      const created = await prisma.alarm.create({
         data: {
           deviceId: ctx.deviceId,
           type: rule.type,
+          source: "rule",
           severity: rule.severity,
           message: rule.message(reading, ctx),
           aiSuggestion: rule.suggestion?.(reading, ctx),
         },
+        include: {
+          device: {
+            include: {
+              plant: { select: { id: true, name: true, code: true } },
+              provider: { select: { slug: true } },
+            },
+          },
+        },
       });
+      const event = {
+        id: created.id,
+        deviceId: created.deviceId,
+        plantId: created.device.plant.id,
+        plantName: created.device.plant.name,
+        plantCode: created.device.plant.code,
+        provider: created.device.provider.slug,
+        severity: created.severity as "critical" | "warning" | "info",
+        type: created.type,
+        source: created.source,
+        message: created.message,
+        startedAt: created.startedAt.toISOString(),
+        kind: "new" as const,
+      };
+      publishAlarm(event);
+      void fanoutAlarm(event).catch((err) =>
+        console.warn(`[rules] fanout failed for ${event.id}: ${(err as Error).message}`),
+      );
     } else if (!fired && existing) {
       // self-heal: condition cleared → resolve the alarm
-      await prisma.alarm.update({
+      const updated = await prisma.alarm.update({
         where: { id: existing.id },
         data: { resolvedAt: new Date() },
+        include: {
+          device: {
+            include: {
+              plant: { select: { id: true, name: true, code: true } },
+              provider: { select: { slug: true } },
+            },
+          },
+        },
+      });
+      publishAlarm({
+        id: updated.id,
+        deviceId: updated.deviceId,
+        plantId: updated.device.plant.id,
+        plantName: updated.device.plant.name,
+        plantCode: updated.device.plant.code,
+        provider: updated.device.provider.slug,
+        severity: updated.severity as "critical" | "warning" | "info",
+        type: updated.type,
+        source: updated.source,
+        message: updated.message,
+        startedAt: updated.startedAt.toISOString(),
+        kind: "resolved",
       });
     }
   }

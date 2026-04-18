@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>SunHub · Pitch 5 min</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --primary: #16a34a;
+    --primary-dark: #006b2c;
+    --primary-container: #00873a;
+    --accent: #facc15;
+    --info: #0ea5e9;
+    --danger: #dc2626;
+    --warning: #f59e0b;
+    --surface: #f4fcf0;
+    --surface-low: #eff6ea;
+    --surface-high: #e3eadf;
+    --white: #ffffff;
+    --ink: #171d16;
+    --ink-mute: #4a5b48;
+    --ink-soft: #6b7b6a;
+    --line: rgba(23, 29, 22, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0b0f0a; color: var(--ink); font-family: "Inter", system-ui, sans-serif; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+
+  .deck {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    max-width: 100vw;
+    max-height: 100vh;
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: 0 40px 120px rgba(0,0,0,.45);
+    border-radius: 24px;
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    padding: 64px 72px;
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity .45s ease, transform .45s ease;
+    pointer-events: none;
+  }
+  .slide.active { opacity: 1; transform: none; pointer-events: auto; }
+
+  h1, h2, h3 { font-family: "Plus Jakarta Sans", "Inter", sans-serif; color: var(--ink); letter-spacing: -0.02em; }
+  h1 { font-size: 72px; font-weight: 800; line-height: 1.02; }
+  h2 { font-size: 48px; font-weight: 700; line-height: 1.05; }
+  h3 { font-size: 24px; font-weight: 700; }
+  p  { font-size: 18px; color: var(--ink-mute); line-height: 1.5; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 14px; border-radius: 999px;
+    background: var(--surface-high); color: var(--primary-dark);
+    font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 12px;
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+
+  .footer {
+    position: absolute; bottom: 24px; left: 72px; right: 72px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--ink-soft); font-family: "Plus Jakarta Sans"; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .brand { display:inline-flex; align-items:center; gap: 8px; }
+  .brand .logo {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-container));
+    display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 12px;
+  }
+  .progress {
+    position: absolute; bottom: 0; left: 0; height: 4px; background: linear-gradient(90deg, var(--primary-dark), var(--primary));
+    transition: width .45s ease;
+  }
+  .hud { position: fixed; top: 16px; right: 20px; color: #cfe4c9; font-family: "JetBrains Mono"; font-size: 11px; opacity: .7; }
+
+  /* ── Slide 1: Cover ──────────────────────────────────────── */
+  .cover { padding: 0; }
+  .cover .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 80% at 80% 10%, rgba(250,204,21,.45), transparent 60%),
+      radial-gradient(70% 70% at 10% 90%, rgba(22,163,74,.35), transparent 55%),
+      linear-gradient(135deg, #eff6ea 0%, #f4fcf0 50%, #ffffff 100%);
+  }
+  .cover .inner {
+    position: relative; height: 100%;
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px;
+    padding: 72px;
+  }
+  .cover .title h1 { font-size: 104px; letter-spacing: -0.035em; line-height: 0.95; }
+  .cover .title h1 em { font-style: normal; background: linear-gradient(120deg, var(--primary-dark), var(--primary-container)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .cover .title .tag { margin-top: 28px; font-size: 24px; color: var(--ink-mute); max-width: 520px; font-weight: 500; }
+  .cover .meta { align-self: end; display: flex; flex-direction: column; gap: 18px; font-family: "Plus Jakarta Sans"; font-weight: 700; color: var(--primary-dark); font-size: 14px; letter-spacing: .15em; text-transform: uppercase; }
+
+  .cover .orb {
+    position: absolute; right: -100px; top: 80px;
+    width: 620px; height: 620px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fde68a 0%, #facc15 40%, #f59e0b 65%, transparent 72%);
+    opacity: .55;
+    filter: blur(2px);
+  }
+  .cover .ray {
+    position: absolute; width: 140%; height: 4px; background: linear-gradient(90deg, transparent, #facc15, transparent);
+    top: 60%; left: -20%; opacity: .3; transform: rotate(-8deg);
+  }
+  .cover .kicker {
+    display: inline-flex; gap: 8px; align-items:center; padding: 8px 16px;
+    background: rgba(255,255,255,.75); backdrop-filter: blur(8px);
+    border-radius: 999px; font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--primary-dark);
+  }
+  .cover .kicker .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px rgba(22,163,74,.18); }
+
+  /* ── Problem ─────────────────────────────────────────────── */
+  .problem .hero {
+    margin-top: 24px;
+    font-family: "Plus Jakarta Sans"; font-size: 108px; font-weight: 800;
+    background: linear-gradient(120deg, #dc2626, #f59e0b);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    line-height: 1;
+  }
+  .problem .grid { margin-top: 48px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .pain { background: white; border-radius: 20px; padding: 24px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+  .pain .icon { width: 36px; height: 36px; border-radius: 10px; display:flex; align-items:center; justify-content:center; background: #fee2e2; color: #b91c1c; font-weight: 700; }
+  .pain h3 { margin-top: 14px; font-size: 20px; }
+  .pain p { margin-top: 6px; font-size: 14px; color: var(--ink-soft); }
+  .pain .num { font-family: "Plus Jakarta Sans"; font-weight: 800; color: var(--danger); font-size: 28px; margin-top: 12px; }
+
+  /* ── Ecosystem ───────────────────────────────────────────── */
+  .eco { }
+  .eco .ring {
+    margin: 20px auto 0; position: relative; width: 860px; height: 460px;
+  }
+  .eco .center {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 240px; height: 240px; border-radius: 50%;
+    background: radial-gradient(circle, var(--primary-container) 0%, var(--primary-dark) 100%);
+    color: white; display:flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: "Plus Jakarta Sans"; box-shadow: 0 24px 60px rgba(0,107,44,.35);
+  }
+  .eco .center .title { font-weight: 800; font-size: 32px; letter-spacing: -0.02em; }
+  .eco .center .subtitle { font-weight: 500; font-size: 13px; opacity: .85; margin-top: 4px; letter-spacing: .12em; text-transform: uppercase; }
+  .node {
+    position: absolute; width: 190px; padding: 16px 18px;
+    background: white; border-radius: 18px; box-shadow: 0 10px 28px rgba(0,107,44,.08);
+    display:flex; flex-direction: column; gap: 4px;
+  }
+  .node .chip { display: inline-flex; align-items: center; gap:6px; padding: 4px 10px; border-radius: 999px; font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; width: fit-content; }
+  .node h3 { font-size: 16px; margin-top: 2px; }
+  .node p { font-size: 12px; color: var(--ink-soft); }
+  .node.n1 { top: 0; left: 0; }
+  .node.n2 { top: 0; right: 0; }
+  .node.n3 { bottom: 0; left: 0; }
+  .node.n4 { bottom: 0; right: 0; }
+  .node.n5 { top: 10px; left: 50%; transform: translateX(-50%); }
+  .node.n6 { bottom: 10px; left: 50%; transform: translateX(-50%); }
+
+  .chip.green { background: #dcfce7; color: #15803d; }
+  .chip.yellow { background: #fef3c7; color: #a16207; }
+  .chip.blue { background: #e0f2fe; color: #0369a1; }
+  .chip.purple { background: #ede9fe; color: #6d28d9; }
+  .chip.pink { background: #fce7f3; color: #be185d; }
+  .chip.gray { background: var(--surface-high); color: var(--primary-dark); }
+
+  .eco svg.lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  /* ── Module slides ───────────────────────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 32px; flex: 1; }
+  .bullets { display: flex; flex-direction: column; gap: 16px; margin-top: 22px; }
+  .bullet { display: flex; gap: 14px; align-items: flex-start; }
+  .bullet .bead { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-high); color: var(--primary-dark); display:flex; align-items:center; justify-content:center; font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 13px; }
+  .bullet p { font-size: 17px; color: var(--ink); }
+  .bullet p b { color: var(--primary-dark); font-weight: 700; }
+
+  .brands { display:flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .brand-pill { font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 12px; padding: 8px 14px; background: white; border-radius: 999px; color: var(--primary-dark); box-shadow: 0 1px 2px rgba(0,0,0,.04); letter-spacing: .06em; text-transform: uppercase; }
+
+  .stage {
+    flex: 1;
+    background: linear-gradient(180deg, var(--surface-low) 0%, white 100%);
+    border-radius: 24px; padding: 28px;
+    display: flex; flex-direction: column; gap: 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    position: relative; overflow: hidden;
+  }
+  .stage .label { font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--primary-dark); }
+
+  .mock-card { background: white; border-radius: 16px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .mock-row { display:flex; gap:10px; align-items:center; }
+  .mock-badge { padding: 3px 10px; border-radius: 999px; font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  .mock-sev-c { background: #fee2e2; color: #b91c1c; }
+  .mock-sev-w { background: #fef3c7; color: #a16207; }
+  .mock-sev-i { background: #e0f2fe; color: #0369a1; }
+  .mock-title { font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 14px; color: var(--ink); }
+  .mock-sub { font-size: 12px; color: var(--ink-soft); font-family: "JetBrains Mono"; }
+
+  /* ── Impact ──────────────────────────────────────────────── */
+  .impact-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 40px; }
+  .kpi {
+    background: white; border-radius: 22px; padding: 28px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04); position: relative; overflow: hidden;
+  }
+  .kpi .label { font-family: "Plus Jakarta Sans"; font-weight: 700; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--primary-dark); }
+  .kpi .value { margin-top: 10px; font-family: "Plus Jakarta Sans"; font-size: 56px; font-weight: 800; line-height: 1; color: var(--ink); letter-spacing: -0.03em; }
+  .kpi .value small { font-size: 20px; color: var(--ink-mute); font-weight: 600; margin-left: 4px; }
+  .kpi .note { margin-top: 10px; font-size: 13px; color: var(--ink-soft); }
+  .kpi::after {
+    content: ""; position: absolute; inset: auto -30px -30px auto;
+    width: 130px; height: 130px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(22,163,74,.12), transparent 70%);
+  }
+  .kpi.yellow::after { background: radial-gradient(circle, rgba(250,204,21,.25), transparent 70%); }
+  .kpi.blue::after   { background: radial-gradient(circle, rgba(14,165,233,.18), transparent 70%); }
+
+  .callout {
+    margin-top: 36px; padding: 22px 28px; border-radius: 20px;
+    background: linear-gradient(120deg, rgba(22,163,74,.12), rgba(250,204,21,.12));
+    display: flex; align-items: center; gap: 16px;
+  }
+  .callout strong { color: var(--primary-dark); font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 20px; }
+  .callout p { font-size: 16px; color: var(--ink); }
+
+  /* ── Close ────────────────────────────────────────────── */
+  .close .hero { margin-top: 30px; }
+  .close h1 { font-size: 96px; }
+  .close .sub { margin-top: 16px; font-size: 22px; color: var(--ink-mute); max-width: 720px; }
+  .close .ecosystem { margin-top: 50px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .ecopill { display: flex; align-items: center; gap: 10px; padding: 12px 18px; background: white; border-radius: 999px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .ecopill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+  .ecopill span { font-family: "Plus Jakarta Sans"; font-weight: 700; color: var(--ink); font-size: 13px; }
+
+  /* ── Controls ────────────────────────────────────────── */
+  .controls {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 20;
+  }
+  .controls button {
+    background: rgba(255,255,255,.12); color: white; border: 1px solid rgba(255,255,255,.15);
+    width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);
+  }
+  .controls button:hover { background: rgba(255,255,255,.2); }
+  .dots { display: flex; gap: 6px; align-items: center; }
+  .dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.25); }
+  .dots span.on { background: var(--accent); width: 20px; border-radius: 4px; }
+
+  @media (max-width: 1300px) {
+    body { background: #0b0f0a; }
+  }
+</style>
+</head>
+<body>
+  <div class="hud" id="hud">1 / 9</div>
+  <div class="deck" id="deck">
+
+    <!-- 1. Cover -->
+    <section class="slide cover active" data-i="1">
+      <div class="bg"></div>
+      <div class="orb"></div>
+      <div class="ray"></div>
+      <div class="inner">
+        <div class="title">
+          <span class="kicker"><span class="dot"></span> Hackathon Tinku 2026 · Los Incapaces</span>
+          <h1 style="margin-top:28px">Sun<em>Hub</em>.</h1>
+          <p class="tag">El sistema operativo de la energía solar.
+            Unifica 200+ plantas, 5 marcas y toda la operación de Techos Rentables en una sola plataforma.</p>
+        </div>
+        <div class="meta">
+          <div>● Ecosistema unificado</div>
+          <div>● IA · Predicción · Automatización</div>
+          <div>● Cliente final empoderado</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Problem -->
+    <section class="slide problem" data-i="2">
+      <span class="eyebrow"><span class="dot"></span> El problema</span>
+      <h2 style="margin-top:18px">Cada planta solar es una isla.</h2>
+      <div class="hero">6 apps · 200 plantas · $M en fugas.</div>
+      <div class="grid">
+        <div class="pain">
+          <div class="icon">!</div>
+          <h3>Operación fragmentada</h3>
+          <p>Growatt, Huawei, Deye, Hoymiles, SRNE, Solarman — cada marca con su propia app.</p>
+          <div class="num">2 h/día</div>
+        </div>
+        <div class="pain">
+          <div class="icon">⏱</div>
+          <h3>Reportes manuales</h3>
+          <p>Excel + screenshots + narrativa mensual por planta.</p>
+          <div class="num">133 h/mes</div>
+        </div>
+        <div class="pain">
+          <div class="icon">↓</div>
+          <h3>Fallas detectadas tarde</h3>
+          <p>La planta cae, nadie ve, PR baja, el PPA penaliza.</p>
+          <div class="num">-15% PR</div>
+        </div>
+        <div class="pain">
+          <div class="icon">✕</div>
+          <h3>Cliente a ciegas</h3>
+          <p>CFO de Bavaria, gerente de Éxito — sin visibilidad del ahorro real.</p>
+          <div class="num">Churn</div>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>02 / 09</span>
+      </div>
+    </section>
+
+    <!-- 3. Ecosistema -->
+    <section class="slide eco" data-i="3">
+      <span class="eyebrow"><span class="dot"></span> La solución</span>
+      <h2 style="margin-top:18px">Un ecosistema, no un dashboard más.</h2>
+      <div class="ring">
+        <svg class="lines" viewBox="0 0 860 460" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#16a34a" stop-opacity=".6"/>
+              <stop offset="100%" stop-color="#16a34a" stop-opacity=".15"/>
+            </linearGradient>
+          </defs>
+          <g stroke="url(#lg)" stroke-width="2" fill="none" stroke-dasharray="3 5">
+            <path d="M 190 60  Q 340 140 430 230" />
+            <path d="M 670 60  Q 520 140 430 230" />
+            <path d="M 190 400 Q 340 320 430 230" />
+            <path d="M 670 400 Q 520 320 430 230" />
+            <path d="M 430 40  L 430 120" />
+            <path d="M 430 340 L 430 420" />
+          </g>
+        </svg>
+
+        <div class="node n1">
+          <span class="chip gray">Integración</span>
+          <h3>API Central</h3>
+          <p>Un solo contrato multi-marca.</p>
+        </div>
+        <div class="node n2">
+          <span class="chip purple">IA</span>
+          <h3>Predicción</h3>
+          <p>Fallas 3–14 días antes.</p>
+        </div>
+        <div class="node n3">
+          <span class="chip green">Operación</span>
+          <h3>Mantenimiento Ágil</h3>
+          <p>Alarmas · Tickets · SLA.</p>
+        </div>
+        <div class="node n4">
+          <span class="chip blue">Cliente</span>
+          <h3>App + Reportes</h3>
+          <p>Visibilidad en vivo, PDF automáticos.</p>
+        </div>
+        <div class="node n5">
+          <span class="chip yellow">Datos externos</span>
+          <h3>Clima</h3>
+          <p>Open-Meteo cruzado con generación.</p>
+        </div>
+        <div class="node n6">
+          <span class="chip pink">Automatización</span>
+          <h3>Self-Healing</h3>
+          <p>Remediación aprobada o automática.</p>
+        </div>
+
+        <div class="center">
+          <div class="subtitle">SunHub</div>
+          <div class="title">Núcleo</div>
+          <div class="subtitle" style="margin-top:6px">Techos Rentables</div>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>03 / 09</span>
+      </div>
+    </section>
+
+    <!-- 4. API Central -->
+    <section class="slide" data-i="4">
+      <span class="eyebrow"><span class="dot"></span> API Central</span>
+      <h2 style="margin-top:18px">Hablamos con todas las marcas.<br />Una sola verdad operativa.</h2>
+      <div class="two-col">
+        <div>
+          <div class="bullets">
+            <div class="bullet"><span class="bead">◉</span><p>Middleware canónico con modelo único: <b>Plant · Device · Reading · Alarm</b>.</p></div>
+            <div class="bullet"><span class="bead">↺</span><p>Sincronización periódica con cron: lecturas, alarmas nativas y catálogo de plantas.</p></div>
+            <div class="bullet"><span class="bead">✓</span><p>Cobertura real: Deye con 18 endpoints, Growatt con flujo <span class="mono">c_user_list → plant/list</span>, Huawei, Hoymiles y SRNE.</p></div>
+            <div class="bullet"><span class="bead">∑</span><p>Cálculo automático de KPIs: uptime, PR, energía, CO₂ evitado, ahorro COP.</p></div>
+          </div>
+          <div class="brands">
+            <span class="brand-pill" style="color:#dc2626">Growatt</span>
+            <span class="brand-pill" style="color:#be185d">Huawei</span>
+            <span class="brand-pill" style="color:#0369a1">Deye</span>
+            <span class="brand-pill" style="color:#a16207">Hoymiles</span>
+            <span class="brand-pill" style="color:#15803d">SRNE</span>
+            <span class="brand-pill" style="color:#6d28d9">Solarman</span>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="label">Request unificado</div>
+          <div class="mock-card">
+            <div class="mono" style="font-size:13px; color:#334155; line-height:1.7">
+              <div><span style="color:#7c3aed">GET</span> /api/plants</div>
+              <div><span style="color:#16a34a">→</span> 200 OK · 43 plantas</div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-row">
+              <span class="mock-badge mock-sev-i">Growatt</span>
+              <div>
+                <div class="mock-title">Bavaria Tibitó</div>
+                <div class="mock-sub">RE-GRO-1660102 · 30 kWp</div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-row">
+              <span class="mock-badge mock-sev-i">Deye</span>
+              <div>
+                <div class="mock-title">Agro Pepper's</div>
+                <div class="mock-sub">RE-DEY-163764 · 11.6 kWp</div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-row">
+              <span class="mock-badge mock-sev-i">Huawei</span>
+              <div>
+                <div class="mock-title">El Edén</div>
+                <div class="mock-sub">RE-HUA-NE=33737693 · 3.27 kWp</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>04 / 09</span>
+      </div>
+    </section>
+
+    <!-- 5. Predicción + Clima -->
+    <section class="slide" data-i="5">
+      <span class="eyebrow"><span class="dot"></span> Predicción + Clima</span>
+      <h2 style="margin-top:18px">Predecir, no reaccionar.<br />Clima cruzado con generación.</h2>
+      <div class="two-col">
+        <div>
+          <div class="bullets">
+            <div class="bullet"><span class="bead">✦</span><p><b>Predicción IA</b> con heurística + LLM (MiniMax): anticipa fallas 3–14 días antes con root-cause y acción sugerida.</p></div>
+            <div class="bullet"><span class="bead">◷</span><p><b>Closed-loop</b>: cada predicción cierra con outcome (confirmed · dismissed · auto_matched) y alimenta el RAG.</p></div>
+            <div class="bullet"><span class="bead">☀</span><p><b>Open-Meteo</b> a 5 días: descarta falsos positivos de "generación baja" por nublado real.</p></div>
+            <div class="bullet"><span class="bead">⚙</span><p><b>Self-healing</b>: política por planta (manual · approval · auto) para restart/clear-fault con auditoría.</p></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="label">Predicciones activas · próximos 7 días</div>
+          <div class="mock-card">
+            <div class="mock-row" style="justify-content:space-between">
+              <span class="mock-title">Degradación progresiva</span>
+              <span class="mock-badge mock-sev-w">Alta · 82%</span>
+            </div>
+            <div class="mock-sub" style="margin-top:6px; font-family:Inter">PR cayendo 3pp/día en TR-0201 · acción: inspeccionar conexión DC.</div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-row" style="justify-content:space-between">
+              <span class="mock-title">Offline en 4 días</span>
+              <span class="mock-badge mock-sev-c">Crítica · 91%</span>
+            </div>
+            <div class="mock-sub" style="margin-top:6px; font-family:Inter">Patrón de fallas previo en RE-DEY-163764 · agendar visita.</div>
+          </div>
+          <div class="mock-card" style="background: linear-gradient(120deg, #fef3c7, #fffbeb)">
+            <div class="mock-row" style="gap:12px">
+              <div style="font-size:28px">☁</div>
+              <div>
+                <div class="mock-title">Jueves: 92% nubosidad</div>
+                <div class="mock-sub" style="font-family:Inter">Alarma de generación baja se suprime automáticamente.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>05 / 09</span>
+      </div>
+    </section>
+
+    <!-- 6. Mantenimiento ágil -->
+    <section class="slide" data-i="6">
+      <span class="eyebrow"><span class="dot"></span> Mantenimiento ágil</span>
+      <h2 style="margin-top:18px">Del ruido al control.<br />Una alarma, un responsable, un SLA.</h2>
+      <div class="two-col">
+        <div>
+          <div class="bullets">
+            <div class="bullet"><span class="bead">◉</span><p><b>Centro de alarmas</b> unificado con severidad, marca y filtros en vivo — SSE en &lt;5 min al operador.</p></div>
+            <div class="bullet"><span class="bead">✓</span><p><b>Flujos operativos:</b> Aceptar · Crear ticket · Asignar responsable real · <b>Escalar al cliente</b> con correo.</p></div>
+            <div class="bullet"><span class="bead">⌘</span><p>Tickets persistentes con prioridad y estado; la alarma muestra su ticket y bloquea duplicados.</p></div>
+            <div class="bullet"><span class="bead">📊</span><p>KPIs del centro: <b>MTTR · SLA 60 min · críticas abiertas</b> — en tiempo real.</p></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="label">Centro de alarmas · live</div>
+          <div class="mock-card" style="border-left: 4px solid #dc2626">
+            <div class="mock-row" style="justify-content:space-between">
+              <span class="mock-title">Inversor offline · Bavaria Tibitó</span>
+              <span class="mock-badge mock-sev-c">Crítica</span>
+            </div>
+            <div class="mock-sub" style="margin-top:4px; font-family:Inter">Asignada a Roberto Striana · ticket #T-0142 abierto</div>
+          </div>
+          <div class="mock-card" style="border-left: 4px solid #f59e0b">
+            <div class="mock-row" style="justify-content:space-between">
+              <span class="mock-title">Frecuencia anómala · Agro Pepper's</span>
+              <span class="mock-badge mock-sev-w">Warning</span>
+            </div>
+            <div class="mock-sub" style="margin-top:4px; font-family:Inter">Escalada al cliente · nota enviada por correo</div>
+          </div>
+          <div class="mock-row" style="gap:10px; margin-top:6px">
+            <div class="mock-card" style="flex:1; text-align:center">
+              <div class="label" style="color:var(--ink-soft)">MTTR</div>
+              <div class="mock-title" style="font-size:26px; color:var(--primary-dark); margin-top:4px">23<span style="font-size:14px; color:var(--ink-soft)">min</span></div>
+            </div>
+            <div class="mock-card" style="flex:1; text-align:center">
+              <div class="label" style="color:var(--ink-soft)">SLA 60 min</div>
+              <div class="mock-title" style="font-size:26px; color:var(--primary-dark); margin-top:4px">92<span style="font-size:14px; color:var(--ink-soft)">%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>06 / 09</span>
+      </div>
+    </section>
+
+    <!-- 7. Cliente + Reportes -->
+    <section class="slide" data-i="7">
+      <span class="eyebrow"><span class="dot"></span> Cliente + Reportes</span>
+      <h2 style="margin-top:18px">El cliente también vive en SunHub.<br />Los reportes se escriben solos.</h2>
+      <div class="two-col">
+        <div>
+          <div class="bullets">
+            <div class="bullet"><span class="bead">📱</span><p><b>App PWA</b> para el cliente final (CFO de Bavaria, gerente de Éxito): ahorro en vivo, CO₂, árboles equivalentes.</p></div>
+            <div class="bullet"><span class="bead">📄</span><p>Reportes <b>mensuales/semanales/quincenales/trimestrales</b> agendados — generación, cumplimiento de PPA, narrativa IA.</p></div>
+            <div class="bullet"><span class="bead">✉</span><p>Distribución automática por correo con Mailpit/SMTP — el operador no toca Excel.</p></div>
+            <div class="bullet"><span class="bead">🤖</span><p><b>Copilot IA</b>: "¿por qué cayó TR-0201 ayer?" — respuesta en español con contexto de la flota.</p></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="label">Dashboard Cliente · Bavaria</div>
+          <div class="mock-card" style="background: linear-gradient(120deg, #f0fdf4, #ecfdf5)">
+            <div class="label" style="color:var(--primary-dark)">Tu energía este mes</div>
+            <div style="font-family:Plus Jakarta Sans; font-size:48px; font-weight:800; color:var(--primary-dark); line-height:1; margin-top:8px">8.42 <span style="font-size:22px; color:var(--ink-mute)">MWh</span></div>
+            <div class="mock-sub" style="margin-top:8px; font-family:Inter">+12% vs mes anterior · 4.2 ton CO₂ evitadas</div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-title">Reporte Septiembre 2026</div>
+            <div class="mock-sub" style="margin-top:4px; font-family:Inter">Enviado a cfo@bavaria.com.co · cumplimiento PPA 98%</div>
+          </div>
+          <div class="mock-card" style="background:#0f172a; color:white">
+            <div class="label" style="color:#86efac">Copilot IA</div>
+            <div class="mock-title" style="color:white; margin-top:6px">"¿Qué planta tiene peor PR esta semana?"</div>
+            <div style="margin-top:6px; font-size:13px; color:#cbd5e1; font-family:Inter">→ TR-0201, PR 74% (meta 85%). Causa probable: suciedad en strings 3-4. Ver predicción.</div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>07 / 09</span>
+      </div>
+    </section>
+
+    <!-- 8. Impact -->
+    <section class="slide" data-i="8">
+      <span class="eyebrow"><span class="dot"></span> Impacto de negocio</span>
+      <h2 style="margin-top:18px">Menos horas, menos penalizaciones,<br />más clientes satisfechos.</h2>
+      <div class="impact-grid">
+        <div class="kpi">
+          <div class="label">Horas recuperadas</div>
+          <div class="value">133<small>h/mes</small></div>
+          <div class="note">Reportes que antes eran 40 min × 200 plantas ahora se generan en &lt;30 seg.</div>
+        </div>
+        <div class="kpi yellow">
+          <div class="label">MTTR</div>
+          <div class="value">-65<small>%</small></div>
+          <div class="note">De fallas encontradas con la factura a alarmas &lt;5 min al operador.</div>
+        </div>
+        <div class="kpi blue">
+          <div class="label">Visibilidad</div>
+          <div class="value">100<small>%</small></div>
+          <div class="note">Cliente con app propia — elimina llamadas de soporte y fortalece el NPS.</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Onboarding</div>
+          <div class="value">10<small>min</small></div>
+          <div class="note">Wizard de 5 pasos: de "papeleo 2 días" a planta reportando en &lt;10 min.</div>
+        </div>
+      </div>
+      <div class="callout">
+        <div style="font-size:32px">⚡</div>
+        <div>
+          <strong>Caso real · Bavaria Tibitó (TR-0201)</strong>
+          <p>PR caía 21pp/día sin ser detectado. Penalización <b>$2.5 M COP</b>. Con SunHub, la predicción lo levanta el día 2.</p>
+        </div>
+      </div>
+      <div class="footer">
+        <span class="brand"><span class="logo">S</span> SunHub · Pitch</span>
+        <span>08 / 09</span>
+      </div>
+    </section>
+
+    <!-- 9. Close -->
+    <section class="slide close" data-i="9">
+      <span class="eyebrow"><span class="dot"></span> Cierre</span>
+      <div class="hero">
+        <h1>El sol trabaja 24/7.<br /><span style="background:linear-gradient(120deg,#006b2c,#facc15); -webkit-background-clip:text; background-clip:text; color:transparent">SunHub también.</span></h1>
+        <p class="sub">Hoy: 9 módulos, 5 marcas, alarmas &lt;5 min, predicción IA, app de cliente, reportes automáticos.</p>
+        <p class="sub" style="margin-top:10px"><b>Siguiente:</b> self-healing en producción, marketplace de mantenimiento y billing por PPA.</p>
+      </div>
+      <div class="ecosystem">
+        <div class="ecopill"><span class="dot"></span><span>API Central</span></div>
+        <div class="ecopill"><span class="dot" style="background:#a78bfa"></span><span>Predicción IA</span></div>
+        <div class="ecopill"><span class="dot" style="background:#0ea5e9"></span><span>Mantenimiento Ágil</span></div>
+        <div class="ecopill"><span class="dot" style="background:#facc15"></span><span>Clima</span></div>
+        <div class="ecopill"><span class="dot" style="background:#ec4899"></span><span>App Cliente</span></div>
+        <div class="ecopill"><span class="dot" style="background:#0f172a"></span><span>Reportes automáticos</span></div>
+      </div>
+      <div style="margin-top:60px; display:flex; align-items:center; gap:24px">
+        <div style="width:64px; height:64px; border-radius:18px; background: linear-gradient(135deg,#006b2c,#16a34a); display:flex; align-items:center; justify-content:center; color:white; font-family:Plus Jakarta Sans; font-weight:800; font-size:28px; box-shadow: 0 10px 30px rgba(0,107,44,.35)">S</div>
+        <div>
+          <div style="font-family:Plus Jakarta Sans; font-weight:800; font-size:28px; letter-spacing:-0.02em">Gracias.</div>
+          <div style="color:var(--ink-soft); font-size:14px; margin-top:4px">Los Incapaces · Tinku 2026 · Techos Rentables</div>
+        </div>
+      </div>
+      <div class="progress" id="progress" style="width: 100%"></div>
+    </section>
+
+  </div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Anterior">‹</button>
+    <div class="dots" id="dots"></div>
+    <button id="next" aria-label="Siguiente">›</button>
+  </div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll(".slide"));
+  const hud = document.getElementById("hud");
+  const dotsEl = document.getElementById("dots");
+  const total = slides.length;
+  let i = 0;
+
+  function render(){
+    slides.forEach((s, idx) => s.classList.toggle("active", idx === i));
+    hud.textContent = (i+1) + " / " + total;
+    dotsEl.innerHTML = "";
+    for (let k = 0; k < total; k++) {
+      const d = document.createElement("span");
+      if (k === i) d.classList.add("on");
+      dotsEl.appendChild(d);
+    }
+  }
+  function go(n){ i = Math.max(0, Math.min(total-1, n)); render(); }
+  document.getElementById("prev").onclick = () => go(i-1);
+  document.getElementById("next").onclick = () => go(i+1);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); go(i+1); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(i-1); }
+    if (e.key === "Home") go(0);
+    if (e.key === "End") go(total-1);
+    if (e.key === "f" || e.key === "F") { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }
+  });
+  render();
+</script>
+</body>
+</html>

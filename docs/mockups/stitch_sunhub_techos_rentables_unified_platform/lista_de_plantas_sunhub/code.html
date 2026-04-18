@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SunHub - Plantas Solares</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: "#16A34A",
+                            50: "#F0FDF4",
+                            100: "#DCFCE7",
+                            600: "#16A34A",
+                            700: "#15803D",
+                        },
+                        warning: "#F59E0B",
+                        danger: "#DC2626",
+                        info: "#0EA5E9",
+                        accent: "#FACC15"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        h1, h2, h3, .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
+    </style>
+</head>
+<body class="text-slate-900 overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-200 bg-white flex flex-col p-4 gap-2 z-50">
+<div class="flex flex-col gap-1 mb-8 px-2">
+<span class="text-2xl font-black text-green-600 tracking-tighter">SunHub</span>
+<span class="font-sans text-sm font-medium tracking-tight text-slate-500">Operaciones Solares</span>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Nav Item: Panel Principal -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all font-sans text-sm font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Panel Principal</span>
+</a>
+<!-- Nav Item: Plantas (ACTIVE) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-green-50 text-green-700 rounded-lg border-l-4 border-green-600 font-sans text-sm font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">solar_power</span>
+<span>Plantas</span>
+</a>
+<!-- Nav Item: Alertas -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all font-sans text-sm font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span>Alertas</span>
+</a>
+<!-- Nav Item: Reportes Energy -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all font-sans text-sm font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>Reportes Energy</span>
+</a>
+<!-- Nav Item: Configuración -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all font-sans text-sm font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Configuración</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-slate-100 flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+<img alt="Usuario Operador" class="w-full h-full object-cover" data-alt="Professional solar engineer headshot in a clean office setting, soft corporate lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCB8EelMQRFlkY6Rh8li7PArCCoxnecwDgXVjYxYGCWCtYPIFBJB6DjKGy8XDvmMC9fKYaU2Jrb83qjDQsxRj8d5RhC_Dw1BXBU95NJQ6PPkLmWC7OI5blcqkSpeScmyMTD6GC9boB5jZp3wdZO-DhoHfrm9ERy_9H4zo4xjrnhrG4KUG1AXIJUZTylmGL6aYkVJMVcA7RCFwReUZrzRxxmf4NSV3sQc-uir_U1gIgmYPUYgDGtb_qE9vvMW99pOfCZfy4pp-UV40E"/>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-800">Operador Regional</span>
+<span class="text-[10px] text-slate-500 uppercase font-bold">Admin</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar (Shared Component) -->
+<header class="sticky top-0 w-full z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 py-3">
+<div class="flex items-center gap-6">
+<span class="hidden md:block text-lg font-bold text-slate-800">SunHub Control Tower</span>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-lg text-sm w-64 focus:ring-2 focus:ring-green-500/50 outline-none transition-all" placeholder="Buscar por cliente o ID..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-2">
+<button class="px-3 py-1.5 text-xs uppercase font-bold text-slate-500 hover:bg-slate-50 rounded transition-colors">Filtros de Marca</button>
+<button class="px-3 py-1.5 bg-green-600 text-white text-xs uppercase font-bold rounded hover:bg-green-700 transition-colors shadow-sm">Descargar Reporte</button>
+</div>
+<div class="flex items-center gap-3 text-slate-500">
+<button class="material-symbols-outlined hover:text-green-600 transition-colors">notifications</button>
+<button class="material-symbols-outlined hover:text-green-600 transition-colors">apps</button>
+<button class="material-symbols-outlined hover:text-green-600 transition-colors">account_circle</button>
+</div>
+</div>
+</header>
+<!-- Screen Content Container -->
+<div class="flex-1 p-6 space-y-6 overflow-y-auto h-[calc(100vh-64px)] custom-scrollbar">
+<!-- Page Title & Actions -->
+<div class="flex items-end justify-between">
+<div>
+<h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Plantas solares</h1>
+<p class="text-slate-500 text-sm font-medium mt-1">218 instalaciones activas · 1,247 dispositivos</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 font-semibold text-sm rounded-lg hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined text-sm">download</span>
+                        Exportar CSV
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold text-sm rounded-lg hover:bg-green-700 transition-all shadow-md shadow-green-100">
+<span class="material-symbols-outlined text-sm">add</span>
+                        Nueva planta
+                    </button>
+</div>
+</div>
+<!-- Summary Strip (Bento Pattern) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Plantas totales</p>
+<div class="flex items-end justify-between mt-1">
+<span class="text-2xl font-extrabold text-slate-900 leading-none">218</span>
+<span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">+12%</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Online</p>
+<div class="flex items-end justify-between mt-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+<span class="text-2xl font-extrabold text-slate-900 leading-none">214</span>
+</div>
+<span class="text-xs font-medium text-slate-400">98.1%</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Warnings</p>
+<div class="flex items-end justify-between mt-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-warning"></span>
+<span class="text-2xl font-extrabold text-slate-900 leading-none">3</span>
+</div>
+<span class="text-xs font-medium text-warning font-bold">Revisión requerida</span>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 ring-2 ring-danger/10">
+<p class="text-xs font-bold text-danger uppercase tracking-wider">Offline crítico</p>
+<div class="flex items-end justify-between mt-1">
+<div class="flex items-center gap-2 text-danger">
+<span class="w-2 h-2 rounded-full bg-danger"></span>
+<span class="text-2xl font-extrabold leading-none">1</span>
+</div>
+<span class="text-xs font-bold text-danger">Acción inmediata</span>
+</div>
+</div>
+</div>
+<!-- Filters Section -->
+<div class="flex flex-wrap items-center gap-3 bg-slate-50/50 p-1 rounded-xl">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600">
+<span>Marca:</span>
+<span class="text-green-600">Todas</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+<div class="flex gap-2">
+<span class="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:border-green-300 cursor-pointer transition-colors">Growatt</span>
+<span class="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:border-green-300 cursor-pointer transition-colors">Huawei</span>
+<span class="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:border-green-300 cursor-pointer transition-colors">DeyeCloud</span>
+<span class="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:border-green-300 cursor-pointer transition-colors">Hoymiles</span>
+<span class="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:border-green-300 cursor-pointer transition-colors">SRNE</span>
+</div>
+<div class="w-px h-6 bg-slate-200 mx-1"></div>
+<div class="flex gap-2">
+<span class="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-full text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span> Online
+                    </span>
+<span class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Warning
+                    </span>
+</div>
+<div class="ml-auto flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-400">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                    Más filtros
+                </div>
+</div>
+<!-- Table Container -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse min-w-[1200px]">
+<thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+<tr>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Cliente</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">ID Planta</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Marca(s)</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Capacidad</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">PR Actual</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Uptime 30d</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Última sync</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Cumplimiento</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Riesgo</th>
+<th class="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50/80 transition-colors group">
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span class="font-bold text-slate-800 text-sm">Grupo Éxito</span>
+<span class="text-xs text-slate-500">CD Envigado</span>
+</div>
+</td>
+<td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0142</td>
+<td class="px-4 py-3">
+<div class="flex gap-1">
+<span class="text-[10px] font-extrabold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">GROWATT</span>
+<span class="text-[10px] font-extrabold bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100">HUAWEI</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm font-semibold text-slate-700">450 kWp</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-sm font-bold text-slate-800">84.2%</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm text-slate-600">99.8%</td>
+<td class="px-4 py-3 text-xs text-slate-500">Hace 2m</td>
+<td class="px-4 py-3">
+<span class="material-symbols-outlined text-green-600 text-lg" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</td>
+<td class="px-4 py-3">
+<span class="text-[10px] font-bold text-slate-400">BAJO</span>
+</td>
+<td class="px-4 py-3 text-right">
+<button class="material-symbols-outlined text-slate-400 hover:text-green-600">more_vert</button>
+</td>
+</tr>
+<!-- Row 2 (Auto-gen mixed) -->
+<tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span class="font-bold text-slate-800 text-sm">Almacenes Alkosto</span>
+<span class="text-xs text-slate-500">Venecia</span>
+</div>
+</td>
+<td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0882</td>
+<td class="px-4 py-3">
+<span class="text-[10px] font-extrabold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100">HOYMILES</span>
+</td>
+<td class="px-4 py-3 text-sm font-semibold text-slate-700">120 kWp</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-sm font-bold text-slate-800">81.5%</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm text-slate-600">98.2%</td>
+<td class="px-4 py-3 text-xs text-slate-500">Hace 5m</td>
+<td class="px-4 py-3"><span class="material-symbols-outlined text-green-600 text-lg">check_circle</span></td>
+<td class="px-4 py-3"><span class="text-[10px] font-bold text-slate-400">BAJO</span></td>
+<td class="px-4 py-3 text-right">
+<button class="material-symbols-outlined text-slate-400">more_vert</button>
+</td>
+</tr>
+<!-- Row 3 (Warning example) -->
+<tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span class="font-bold text-slate-800 text-sm">Homecenter</span>
+<span class="text-xs text-slate-500">Cajicá</span>
+</div>
+</td>
+<td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0551</td>
+<td class="px-4 py-3">
+<span class="text-[10px] font-extrabold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">GROWATT</span>
+</td>
+<td class="px-4 py-3 text-sm font-semibold text-slate-700">280 kWp</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+<span class="text-sm font-bold text-slate-800">76.4%</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm text-slate-600">92.1%</td>
+<td class="px-4 py-3 text-xs text-slate-500">Hace 12m</td>
+<td class="px-4 py-3"><span class="material-symbols-outlined text-warning text-lg">warning</span></td>
+<td class="px-4 py-3"><span class="text-[10px] font-bold text-warning uppercase">Medio</span></td>
+<td class="px-4 py-3 text-right">
+<button class="material-symbols-outlined text-slate-400">more_vert</button>
+</td>
+</tr>
+<!-- Row 4 (Bavaria - Critical Risk) -->
+<tr class="bg-red-50/30 hover:bg-red-50/50 transition-colors">
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span class="font-bold text-slate-800 text-sm">Bavaria</span>
+<span class="text-xs text-slate-500">Tibitó</span>
+</div>
+</td>
+<td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0201</td>
+<td class="px-4 py-3">
+<div class="flex gap-1">
+<span class="text-[10px] font-extrabold bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100">DEYE</span>
+<span class="text-[10px] font-extrabold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100">HOYMILES</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm font-semibold text-slate-700">320 kWp</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></span>
+<span class="text-sm font-bold text-danger">71.8%</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm text-slate-600">94.2%</td>
+<td class="px-4 py-3 text-xs text-slate-500">Hace 1h</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-danger text-lg">cancel</span>
+<span class="text-[10px] font-bold text-danger">82%</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<div class="flex flex-col leading-tight">
+<span class="text-[10px] font-black text-danger">ALTO 💸</span>
+<span class="text-[10px] font-bold text-danger">-$2.4M</span>
+</div>
+</td>
+<td class="px-4 py-3 text-right">
+<button class="material-symbols-outlined text-danger">priority_high</button>
+</td>
+</tr>
+<!-- Row 5 (Normal mixed) -->
+<tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span class="font-bold text-slate-800 text-sm">Cemex</span>
+<span class="text-xs text-slate-500">Planta Maceo</span>
+</div>
+</td>
+<td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0912</td>
+<td class="px-4 py-3">
+<span class="text-[10px] font-extrabold bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100">HUAWEI</span>
+</td>
+<td class="px-4 py-3 text-sm font-semibold text-slate-700">850 kWp</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-sm font-bold text-slate-800">86.7%</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm text-slate-600">99.9%</td>
+<td class="px-4 py-3 text-xs text-slate-500">Hace 1m</td>
+<td class="px-4 py-3"><span class="material-symbols-outlined text-green-600 text-lg">check_circle</span></td>
+<td class="px-4 py-3"><span class="text-[10px] font-bold text-slate-400">BAJO</span></td>
+<td class="px-4 py-3 text-right">
+<button class="material-symbols-outlined text-slate-400">more_vert</button>
+</td>
+</tr>
+<!-- Row 6 (Carvajal - Offline Critical) -->
+<tr class="bg-red-100/50 hover:bg-red-100/70 border-l-4 border-l-danger">
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span class="font-bold text-slate-800 text-sm">Carvajal</span>
+<span class="text-xs text-slate-500">Sede Cali</span>
+</div>
+</td>
+<td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0045</td>
+<td class="px-4 py-3">
+<span class="text-[10px] font-extrabold bg-green-50 text-green-600 px-1.5 py-0.5 rounded border border-green-100">SRNE</span>
+</td>
+<td class="px-4 py-3 text-sm font-semibold text-slate-700">240 kWp</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></span>
+<span class="text-sm font-bold text-danger">0.0% OFFLINE</span>
+</div>
+</td>
+<td class="px-4 py-3 text-sm text-slate-600">92.1%</td>
+<td class="px-4 py-3 text-xs font-bold text-danger">Desconectado</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-danger text-lg">cancel</span>
+<span class="text-[10px] font-bold text-danger">76%</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-danger text-white text-[10px] font-black rounded">CRÍTICO</span>
+</td>
+<td class="px-4 py-3 text-right">
+<button class="px-3 py-1 bg-danger text-white text-[10px] font-bold rounded hover:bg-danger/90">ATENDER</button>
+</td>
+</tr>
+<!-- Rows 7-20 (Simulated Mixed) -->
+<!-- Reusing generic pattern for density -->
+<script>
+                                const clients = ["PepsiCo", "Postobón", "Nutresa", "Ecopetrol", "Bancolombia", "Sura", "Argos", "Corona", "Alpina", "Sodimac", "Cencosud", "Ara", "Falabella", "Makro"];
+                                const brands = ["GROWATT", "HUAWEI", "SRNE", "DEYE", "HOYMILES"];
+                                let html = "";
+                                for(let i=0; i<14; i++) {
+                                    const client = clients[i % clients.length];
+                                    const brand = brands[Math.floor(Math.random() * brands.length)];
+                                    const capacity = Math.floor(Math.random() * 800 + 50);
+                                    const pr = (Math.random() * 15 + 75).toFixed(1);
+                                    const uptime = (Math.random() * 5 + 95).toFixed(1);
+                                    
+                                    html += `
+                                    <tr class="hover:bg-slate-50/80 transition-colors">
+                                        <td class="px-4 py-3">
+                                            <div class="flex flex-col">
+                                                <span class="font-bold text-slate-800 text-sm">${client}</span>
+                                                <span class="text-xs text-slate-500">Bodega ${100 + i}</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 font-mono text-xs font-medium text-slate-600">TR-0${400 + i}</td>
+                                        <td class="px-4 py-3">
+                                            <span class="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">${brand}</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm font-semibold text-slate-700">${capacity} kWp</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                                <span class="text-sm font-bold text-slate-800">${pr}%</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">${uptime}%</td>
+                                        <td class="px-4 py-3 text-xs text-slate-500">Hace ${3+i}m</td>
+                                        <td class="px-4 py-3"><span class="material-symbols-outlined text-green-600 text-lg">check_circle</span></td>
+                                        <td class="px-4 py-3"><span class="text-[10px] font-bold text-slate-400">BAJO</span></td>
+                                        <td class="px-4 py-3 text-right">
+                                            <button class="material-symbols-outlined text-slate-400">more_vert</button>
+                                        </td>
+                                    </tr>
+                                    `;
+                                }
+                                document.write(html);
+                            </script>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+<p class="text-xs font-medium text-slate-500">Mostrando 1-20 de 218</p>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-400 hover:text-slate-600 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-slate-200 bg-green-600 text-white text-xs font-bold shadow-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50">3</button>
+<span class="px-2 self-center text-slate-400">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50">11</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Floating Panel (Selection Summary) -->
+<aside class="fixed right-6 bottom-6 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 translate-y-0 transition-transform duration-300 z-50 overflow-hidden">
+<div class="bg-slate-900 px-4 py-3 flex items-center justify-between">
+<h3 class="text-xs font-bold text-white uppercase tracking-wider">Resumen de selección (0)</h3>
+<button class="text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<div class="p-8 flex flex-col items-center justify-center text-center gap-4">
+<div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center border-2 border-dashed border-slate-200">
+<span class="material-symbols-outlined text-slate-300 text-3xl">playlist_add_check</span>
+</div>
+<div>
+<p class="text-sm font-bold text-slate-800">No hay plantas seleccionadas</p>
+<p class="text-xs text-slate-500 mt-1 px-4">Selecciona múltiples plantas de la tabla para realizar acciones masivas.</p>
+</div>
+<button class="mt-2 text-xs font-bold text-green-600 uppercase tracking-tighter opacity-50 cursor-not-allowed">Comparar rendimiento</button>
+</div>
+</aside>
+<!-- FAB Suppression (Contextual) - Not needed for List Screen as per rules -->
+</body></html>

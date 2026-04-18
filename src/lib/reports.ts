@@ -5,6 +5,9 @@
  */
 import { prisma } from "./prisma";
 import { chat } from "./minimax";
+import { stripMarkdown } from "./strip-markdown";
+
+export { stripMarkdown };
 
 export type ReportMetrics = {
   periodLabel: string;
@@ -100,11 +103,17 @@ export async function generateNarrative(
   metrics: ReportMetrics,
 ): Promise<string> {
   const system = `Eres un operador senior de Techos Rentables escribiendo el reporte mensual de una planta solar.
-Escribe en español, 3 párrafos cortos:
+Escribe en español, en **texto plano**, exactamente 3 párrafos cortos separados por una línea en blanco:
 1) Qué pasó (cumplimiento energético + uptime).
 2) Qué riesgos se detectaron y qué acciones se tomaron.
 3) Recomendaciones para el próximo mes.
-Usa los números exactos que te doy y evita rellenos de marketing. Nunca inventes datos que no te pasé.`;
+Usa los números exactos que te doy y evita rellenos de marketing. Nunca inventes datos que no te pasé.
+
+REGLAS DE FORMATO ESTRICTAS (el resultado va directo a un PDF):
+- PROHIBIDO usar markdown: nada de ###, **, __, *, -, #, >, \`\`\`, ni viñetas.
+- PROHIBIDO títulos, encabezados o listas. Solo prosa corrida.
+- PROHIBIDO emojis y comillas tipográficas.
+- Cada párrafo: 2 a 4 oraciones, máximo ~400 caracteres.`;
   const user = `Planta: ${plantName} (cliente ${client}, periodo ${metrics.periodLabel}).
 Energía generada: ${metrics.energyKwh.toFixed(0)} kWh / meta ${metrics.targetEnergyKwh.toFixed(0)} kWh.
 Uptime: ${metrics.uptimePct.toFixed(1)}% / meta ${metrics.targetUptimePct.toFixed(1)}%.
@@ -114,11 +123,13 @@ CO₂ evitado: ${metrics.co2Ton.toFixed(2)} ton.
 Cumplimiento global: ${metrics.compliancePct.toFixed(1)}%.
 Exposición a penalización: $${metrics.penaltyExposureCop.toLocaleString("es-CO")} COP.`;
 
-  return chat(
+  const raw = await chat(
     [
       { role: "system", content: system },
       { role: "user", content: user },
     ],
     { temperature: 0.3, maxTokens: 700 },
   );
+  return stripMarkdown(raw);
 }
+
