@@ -3,6 +3,7 @@ import { AppShell } from "@/components/sunhub/app-shell";
 import { KpiCard } from "@/components/sunhub/kpi-card";
 import { StatusBadge } from "@/components/sunhub/status-badge";
 import { prisma } from "@/lib/prisma";
+import { AutoRemediationToggle } from "./auto-remediation-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +143,7 @@ export default async function PlantDetailPage({
           ) : (
             <p className="mt-2 text-sm text-slate-500">Sin contrato definido.</p>
           )}
+          <AutoRemediationToggle plantId={plant.id} initialEnabled={plant.autoRemediationEnabled} />
         </div>
       </section>
     </AppShell>

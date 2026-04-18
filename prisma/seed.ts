@@ -253,6 +253,110 @@ async function main() {
 
   console.log(`✓ ${PLANTS.length} plants seeded across ${clientsByName.size} clients.`);
   console.log(`  Real plant via middleware: Growatt plant_id=1356131 (Bavaria Tibitó)`);
+
+  console.log("→ Seeding remediation policies…");
+  type PolicySeed = {
+    alarmType: string;
+    providerSlug: string | null;
+    actionType: string;
+    maxSeverity: string;
+    cooldownMin: number;
+    maxAttempts: number;
+    enabled: boolean;
+    requiresHuman: boolean;
+    requiresAiDecision?: boolean;
+  };
+
+  const POLICIES: PolicySeed[] = [
+    {
+      alarmType: "low_gen",
+      providerSlug: "deye",
+      actionType: "restart_inverter",
+      maxSeverity: "warning",
+      cooldownMin: 30,
+      maxAttempts: 2,
+      enabled: true,
+      requiresHuman: false,
+    },
+    {
+      alarmType: "low_gen",
+      providerSlug: "growatt",
+      actionType: "restart_inverter",
+      maxSeverity: "warning",
+      cooldownMin: 30,
+      maxAttempts: 2,
+      enabled: true,
+      requiresHuman: false,
+    },
+    {
+      alarmType: "temperature",
+      providerSlug: null,
+      actionType: "set_power_limit",
+      maxSeverity: "warning",
+      cooldownMin: 60,
+      maxAttempts: 1,
+      enabled: true,
+      requiresHuman: false,
+      requiresAiDecision: true,
+    },
+    {
+      alarmType: "frequency",
+      providerSlug: null,
+      actionType: "clear_fault",
+      maxSeverity: "critical",
+      cooldownMin: 0,
+      maxAttempts: 0,
+      enabled: true,
+      requiresHuman: true,
+    },
+    {
+      alarmType: "voltage",
+      providerSlug: null,
+      actionType: "clear_fault",
+      maxSeverity: "critical",
+      cooldownMin: 0,
+      maxAttempts: 0,
+      enabled: true,
+      requiresHuman: true,
+    },
+    {
+      alarmType: "offline",
+      providerSlug: null,
+      actionType: "clear_fault",
+      maxSeverity: "critical",
+      cooldownMin: 0,
+      maxAttempts: 0,
+      enabled: true,
+      requiresHuman: true,
+    },
+  ];
+
+  for (const p of POLICIES) {
+    const existing = await prisma.remediationPolicy.findFirst({
+      where: {
+        alarmType: p.alarmType,
+        providerSlug: p.providerSlug,
+        actionType: p.actionType,
+      },
+    });
+    const data = {
+      alarmType: p.alarmType,
+      providerSlug: p.providerSlug,
+      actionType: p.actionType,
+      maxSeverity: p.maxSeverity,
+      cooldownMin: p.cooldownMin,
+      maxAttempts: p.maxAttempts,
+      enabled: p.enabled,
+      requiresHuman: p.requiresHuman,
+      requiresAiDecision: p.requiresAiDecision ?? false,
+    };
+    if (existing) {
+      await prisma.remediationPolicy.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.remediationPolicy.create({ data });
+    }
+  }
+  console.log(`✓ ${POLICIES.length} remediation policies seeded.`);
 }
 
 main()

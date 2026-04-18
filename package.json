@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "ingest": "tsx src/workers/ingest.ts",
+    "verify-remediation": "tsx src/workers/verify-remediation.ts",
     "mw:ping": "tsx scripts/ping-middleware.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -17,7 +18,8 @@
     "db:studio": "prisma studio",
     "mw:explore": "tsx scripts/explore-middleware.ts",
     "ingest:backfill": "tsx scripts/backfill-readings.ts",
-    "plants:sync": "tsx scripts/sync-real-plants.ts"
+    "plants:sync": "tsx scripts/sync-real-plants.ts",
+    "demo:remediation": "tsx scripts/seed-remediation-demo.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

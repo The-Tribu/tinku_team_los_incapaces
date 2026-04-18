@@ -40,6 +40,7 @@ import { providers, type ProviderSlug, type CanonicalReading } from "../lib/norm
 import { readingEndpoint } from "../lib/providers";
 import { syntheticReading } from "../lib/synthetic";
 import { evaluateRules } from "../lib/rules";
+import { evaluateRemediation } from "../lib/remediation/evaluator";
 
 const POLL_INTERVAL_MS = Number(process.env.INGEST_INTERVAL_MS ?? 60_000);
 const ONESHOT = process.argv.includes("--once");
@@ -121,6 +122,7 @@ async function tick() {
   let realOk = 0;
   let synthOk = 0;
   let fail = 0;
+  let remediationCount = 0;
   for (const d of devices) {
     const slug = d.provider.slug as ProviderSlug;
     if (!(slug in providers)) {
@@ -149,6 +151,12 @@ async function tick() {
         plantCapacityKwp: Number((d as unknown as { plant?: { capacityKwp?: unknown } }).plant?.capacityKwp ?? 0),
         currentStatus: d.currentStatus,
       });
+      try {
+        const results = await evaluateRemediation(d.id);
+        remediationCount += results.filter((r) => r.status === "success").length;
+      } catch (err) {
+        console.warn(`[ingest] remediation eval failed for ${d.externalId}:`, (err as Error).message);
+      }
       if (source === "real") realOk++;
       else synthOk++;
     } catch (err) {
@@ -158,7 +166,7 @@ async function tick() {
   }
   const dur = Date.now() - started;
   console.log(
-    `[ingest] tick done · real=${realOk} synth=${synthOk} fail=${fail} · ${dur}ms`,
+    `[ingest] tick done · real=${realOk} synth=${synthOk} fail=${fail} remedied=${remediationCount} · ${dur}ms`,
   );
 }
 

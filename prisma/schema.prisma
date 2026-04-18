@@ -13,11 +13,11 @@ datasource db {
 
 // ── Comercial ─────────────────────────────────────────────────
 model Client {
-  id           String    @id @default(uuid()) @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
   name         String
-  contactEmail String?   @map("contact_email")
+  contactEmail String?  @map("contact_email")
   region       String?
-  createdAt    DateTime  @default(now()) @map("created_at")
+  createdAt    DateTime @default(now()) @map("created_at")
   plants       Plant[]
   reports      Report[]
 
@@ -25,17 +25,18 @@ model Client {
 }
 
 model Plant {
-  id           String    @id @default(uuid()) @db.Uuid
-  clientId     String    @map("client_id") @db.Uuid
-  code         String    @unique
-  name         String
-  location     String?
-  lat          Decimal?  @db.Decimal(10, 6)
-  lng          Decimal?  @db.Decimal(10, 6)
-  capacityKwp  Decimal?  @map("capacity_kwp") @db.Decimal(10, 2)
-  contractType String?   @map("contract_type")
-  contractEnd  DateTime? @map("contract_end") @db.Date
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id                     String    @id @default(uuid()) @db.Uuid
+  clientId               String    @map("client_id") @db.Uuid
+  code                   String    @unique
+  name                   String
+  location               String?
+  lat                    Decimal?  @db.Decimal(10, 6)
+  lng                    Decimal?  @db.Decimal(10, 6)
+  capacityKwp            Decimal?  @map("capacity_kwp") @db.Decimal(10, 2)
+  contractType           String?   @map("contract_type")
+  contractEnd            DateTime? @map("contract_end") @db.Date
+  autoRemediationEnabled Boolean   @default(true) @map("auto_remediation_enabled")
+  createdAt              DateTime  @default(now()) @map("created_at")
 
   client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   devices   Device[]
@@ -70,11 +71,12 @@ model Device {
   currentStatus String    @default("offline") @map("current_status") // online|warning|offline|degraded
   lastSeenAt    DateTime? @map("last_seen_at")
 
-  plant       Plant        @relation(fields: [plantId], references: [id], onDelete: Cascade)
-  provider    Provider     @relation(fields: [providerId], references: [id])
-  readings    Reading[]
-  alarms      Alarm[]
-  predictions Prediction[]
+  plant        Plant               @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  provider     Provider            @relation(fields: [providerId], references: [id])
+  readings     Reading[]
+  alarms       Alarm[]
+  predictions  Prediction[]
+  remediations RemediationAction[]
 
   @@unique([providerId, externalId])
   @@index([plantId])
@@ -103,15 +105,15 @@ model Reading {
 
 // ── Contratos y compromisos ───────────────────────────────────
 model Contract {
-  id                String   @id @default(uuid()) @db.Uuid
-  plantId           String   @map("plant_id") @db.Uuid
-  periodMonth       DateTime @map("period_month") @db.Date
-  targetEnergyKwh   Decimal? @map("target_energy_kwh") @db.Decimal(12, 2)
-  targetSavingsCop  Decimal? @map("target_savings_cop") @db.Decimal(14, 2)
-  targetUptimePct   Decimal? @map("target_uptime_pct") @db.Decimal(5, 2)
-  targetPrPct       Decimal? @map("target_pr_pct") @db.Decimal(5, 2)
-  targetCo2Ton      Decimal? @map("target_co2_ton") @db.Decimal(10, 3)
-  penaltyPerBreach  Decimal? @map("penalty_per_breach") @db.Decimal(14, 2)
+  id               String   @id @default(uuid()) @db.Uuid
+  plantId          String   @map("plant_id") @db.Uuid
+  periodMonth      DateTime @map("period_month") @db.Date
+  targetEnergyKwh  Decimal? @map("target_energy_kwh") @db.Decimal(12, 2)
+  targetSavingsCop Decimal? @map("target_savings_cop") @db.Decimal(14, 2)
+  targetUptimePct  Decimal? @map("target_uptime_pct") @db.Decimal(5, 2)
+  targetPrPct      Decimal? @map("target_pr_pct") @db.Decimal(5, 2)
+  targetCo2Ton     Decimal? @map("target_co2_ton") @db.Decimal(10, 3)
+  penaltyPerBreach Decimal? @map("penalty_per_breach") @db.Decimal(14, 2)
 
   plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
 
@@ -130,8 +132,10 @@ model Alarm {
   resolvedAt    DateTime? @map("resolved_at")
   assignee      String?
   aiSuggestion  String?   @map("ai_suggestion")
+  requiresHuman Boolean   @default(false) @map("requires_human")
 
-  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  device       Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  remediations RemediationAction[]
 
   @@index([deviceId, startedAt(sort: Desc)])
   @@index([resolvedAt])
@@ -172,4 +176,50 @@ model Report {
 
   @@index([clientId, period])
   @@map("reports")
+}
+
+// ── Auto-remediación ──────────────────────────────────────────
+model RemediationAction {
+  id             String    @id @default(uuid()) @db.Uuid
+  alarmId        String?   @map("alarm_id") @db.Uuid
+  deviceId       String    @map("device_id") @db.Uuid
+  actionType     String    @map("action_type") // restart_inverter | set_power_limit | toggle_mppt | clear_fault | set_work_mode
+  severity       String    @default("low") // low | medium | high
+  reason         String
+  status         String // pending | executing | success | failed | skipped | escalated
+  executionMode  String    @map("execution_mode") // live | dry_run | shadow
+  requestPayload Json?     @map("request_payload")
+  responseBody   Json?     @map("response_body")
+  errorMessage   String?   @map("error_message")
+  attempt        Int       @default(1)
+  triggeredBy    String    @map("triggered_by") // rule_engine | ai_agent | manual
+  executedAt     DateTime  @default(now()) @map("executed_at")
+  verifiedAt     DateTime? @map("verified_at")
+  outcome        String? // resolved | no_change | regressed
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  alarm  Alarm? @relation(fields: [alarmId], references: [id])
+
+  @@index([deviceId, executedAt(sort: Desc)])
+  @@index([alarmId])
+  @@index([status])
+  @@map("remediation_actions")
+}
+
+model RemediationPolicy {
+  id                 String   @id @default(uuid()) @db.Uuid
+  alarmType          String   @map("alarm_type") // low_gen | voltage | temperature | frequency | offline
+  providerSlug       String?  @map("provider_slug") // null = applies to all providers
+  actionType         String   @map("action_type")
+  maxSeverity        String   @map("max_severity") // don't fire if alarm severity exceeds this
+  cooldownMin        Int      @default(30) @map("cooldown_min")
+  maxAttempts        Int      @default(2) @map("max_attempts")
+  enabled            Boolean  @default(true)
+  requiresHuman      Boolean  @default(false) @map("requires_human")
+  requiresAiDecision Boolean  @default(false) @map("requires_ai_decision")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([alarmType, providerSlug, actionType])
+  @@map("remediation_policies")
 }

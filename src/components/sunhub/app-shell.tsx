@@ -6,6 +6,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "◎" },
   { href: "/plantas", label: "Plantas", icon: "☀" },
   { href: "/alarmas", label: "Alarmas", icon: "!" },
+  { href: "/auto-reparacion", label: "Auto-reparación", icon: "⟳" },
   { href: "/predicciones", label: "Predicción", icon: "⏳" },
   { href: "/copilot", label: "Copilot AI", icon: "✦" },
   { href: "/reportes", label: "Reportes", icon: "⎙" },

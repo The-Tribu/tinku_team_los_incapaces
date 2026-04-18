@@ -16,7 +16,7 @@ export default async function AlarmsPage({
   if (sp.status === "resolved") where.resolvedAt = { not: null };
   if (sp.severity) where.severity = sp.severity;
 
-  const [alarms, countOpen, countCritical] = await Promise.all([
+  const [alarms, countOpen, countCritical, policies] = await Promise.all([
     prisma.alarm.findMany({
       where,
       take: 100,
@@ -28,11 +28,37 @@ export default async function AlarmsPage({
             provider: { select: { slug: true } },
           },
         },
+        remediations: {
+          take: 1,
+          orderBy: { executedAt: "desc" },
+          select: {
+            id: true,
+            executedAt: true,
+            status: true,
+            executionMode: true,
+            outcome: true,
+            actionType: true,
+          },
+        },
       },
     }),
     prisma.alarm.count({ where: { resolvedAt: null } }),
     prisma.alarm.count({ where: { resolvedAt: null, severity: "critical" } }),
+    prisma.remediationPolicy.findMany({ where: { enabled: true } }),
   ]);
+
+  const policyIndex = new Map<string, { requiresHuman: boolean }>();
+  for (const p of policies) {
+    const k = `${p.alarmType}|${p.providerSlug ?? "*"}`;
+    policyIndex.set(k, { requiresHuman: p.requiresHuman });
+  }
+  function resolvePolicy(alarmType: string, providerSlug: string) {
+    return (
+      policyIndex.get(`${alarmType}|${providerSlug}`) ??
+      policyIndex.get(`${alarmType}|*`) ??
+      null
+    );
+  }
 
   return (
     <AppShell
@@ -90,22 +116,40 @@ export default async function AlarmsPage({
                 </td>
               </tr>
             ) : (
-              alarms.map((a) => (
-                <AlarmRow
-                  key={a.id}
-                  id={a.id}
-                  severity={a.severity}
-                  message={a.message}
-                  plantName={a.device.plant.name}
-                  plantCode={a.device.plant.code}
-                  plantId={a.device.plant.id}
-                  provider={a.device.provider.slug}
-                  startedAt={a.startedAt.toISOString()}
-                  resolvedAt={a.resolvedAt?.toISOString() ?? null}
-                  aiSuggestion={a.aiSuggestion}
-                  assignee={a.assignee}
-                />
-              ))
+              alarms.map((a) => {
+                const policy = resolvePolicy(a.type, a.device.provider.slug);
+                const last = a.remediations[0];
+                return (
+                  <AlarmRow
+                    key={a.id}
+                    id={a.id}
+                    severity={a.severity}
+                    message={a.message}
+                    plantName={a.device.plant.name}
+                    plantCode={a.device.plant.code}
+                    plantId={a.device.plant.id}
+                    provider={a.device.provider.slug}
+                    startedAt={a.startedAt.toISOString()}
+                    resolvedAt={a.resolvedAt?.toISOString() ?? null}
+                    aiSuggestion={a.aiSuggestion}
+                    assignee={a.assignee}
+                    autoRemediable={policy !== null && !policy.requiresHuman}
+                    requiresHuman={a.requiresHuman || (policy?.requiresHuman ?? false)}
+                    recentRemediation={
+                      last
+                        ? {
+                            id: last.id,
+                            executedAt: last.executedAt.toISOString(),
+                            status: last.status,
+                            executionMode: last.executionMode,
+                            outcome: last.outcome,
+                            actionType: last.actionType,
+                          }
+                        : null
+                    }
+                  />
+                );
+              })
             )}
           </tbody>
         </table>

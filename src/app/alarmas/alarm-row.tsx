@@ -3,6 +3,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+type RemediationLite = {
+  id: string;
+  executedAt: string;
+  status: string;
+  executionMode: string;
+  outcome: string | null;
+  actionType: string;
+};
+
 type Props = {
   id: string;
   severity: string;
@@ -15,11 +24,15 @@ type Props = {
   resolvedAt: string | null;
   aiSuggestion: string | null;
   assignee: string | null;
+  autoRemediable: boolean;
+  requiresHuman: boolean;
+  recentRemediation: RemediationLite | null;
 };
 
 function fmtAgo(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.floor(ms / 60000);
+  if (m < 1) return "recién";
   if (m < 60) return `hace ${m} min`;
   const h = Math.floor(m / 60);
   if (h < 24) return `hace ${h} h`;
@@ -33,9 +46,16 @@ const SEV_STYLE: Record<string, string> = {
   info: "bg-sky-100 text-sky-700 border-sky-200",
 };
 
+const MODE_LABEL: Record<string, string> = {
+  dry_run: "simulado",
+  shadow: "shadow",
+  live: "live",
+};
+
 export function AlarmRow(props: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   async function patch(body: Record<string, unknown>) {
     setBusy(true);
@@ -45,6 +65,28 @@ export function AlarmRow(props: Props) {
       body: JSON.stringify(body),
     });
     setBusy(false);
+    router.refresh();
+  }
+
+  async function triggerAuto() {
+    setBusy(true);
+    setFeedback(null);
+    const res = await fetch("/api/remediation/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alarmId: props.id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      status?: string;
+      mode?: string;
+      reason?: string;
+    };
+    setBusy(false);
+    setFeedback(
+      data.status === "success"
+        ? `✓ Acción ${data.mode === "dry_run" ? "simulada" : "ejecutada"} — ver en /auto-reparacion`
+        : `${data.status ?? "error"} · ${data.reason ?? "sin detalle"}`,
+    );
     router.refresh();
   }
 
@@ -61,9 +103,42 @@ export function AlarmRow(props: Props) {
       </td>
       <td className="px-4 py-3">
         <div className="text-sm font-medium text-slate-900">{props.message}</div>
-        <div className="text-xs text-slate-500">
-          {props.provider} · {props.assignee ? `asignada a ${props.assignee}` : "sin asignar"}
+        <div className="mt-0.5 flex flex-wrap gap-1 text-xs text-slate-500">
+          <span>{props.provider}</span>
+          <span>·</span>
+          <span>{props.assignee ? `asignada a ${props.assignee}` : "sin asignar"}</span>
+          {props.autoRemediable && !props.requiresHuman ? (
+            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+              Auto-remediable
+            </span>
+          ) : null}
+          {props.requiresHuman ? (
+            <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-red-700">
+              Requiere humano
+            </span>
+          ) : null}
         </div>
+        {props.recentRemediation ? (
+          <div className="mt-1 text-[11px] text-slate-500" suppressHydrationWarning>
+            Último intento {fmtAgo(props.recentRemediation.executedAt)} ·{" "}
+            <span className="font-mono">{props.recentRemediation.actionType}</span> ·{" "}
+            <span className="uppercase">{MODE_LABEL[props.recentRemediation.executionMode] ?? props.recentRemediation.executionMode}</span>{" "}
+            ·{" "}
+            <span
+              className={
+                props.recentRemediation.status === "success"
+                  ? "text-emerald-700"
+                  : props.recentRemediation.status === "failed"
+                    ? "text-red-700"
+                    : "text-slate-600"
+              }
+            >
+              {props.recentRemediation.status}
+            </span>
+            {props.recentRemediation.outcome ? ` → ${props.recentRemediation.outcome}` : ""}
+          </div>
+        ) : null}
+        {feedback ? <div className="mt-1 text-[11px] text-slate-600">{feedback}</div> : null}
       </td>
       <td className="px-4 py-3">
         <Link
@@ -74,7 +149,7 @@ export function AlarmRow(props: Props) {
         </Link>
         <div className="font-mono text-xs text-slate-500">{props.plantCode}</div>
       </td>
-      <td className="px-4 py-3 text-xs text-slate-600">{fmtAgo(props.startedAt)}</td>
+      <td className="px-4 py-3 text-xs text-slate-600" suppressHydrationWarning>{fmtAgo(props.startedAt)}</td>
       <td className="px-4 py-3 text-xs text-slate-600">
         {props.aiSuggestion ?? <span className="italic text-slate-400">—</span>}
       </td>
@@ -88,7 +163,16 @@ export function AlarmRow(props: Props) {
             Reabrir
           </button>
         ) : (
-          <div className="flex justify-end gap-1.5">
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {props.autoRemediable && !props.requiresHuman ? (
+              <button
+                disabled={busy}
+                onClick={triggerAuto}
+                className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+              >
+                Auto-reparar
+              </button>
+            ) : null}
             <button
               disabled={busy}
               onClick={() => patch({ assignee: "Operaciones" })}
