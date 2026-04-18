@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertOctagon, AlertTriangle, Info, Sparkles, Ticket } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CheckCircle2, Info, Sparkles, Ticket } from "lucide-react";
 import { BrandChip } from "@/components/sunhub/brand-chip";
 import { cn } from "@/lib/cn";
 import type { AlarmItem, AlarmSeverity } from "./alarms-center";
@@ -116,7 +116,11 @@ export function AlarmListCard({ item, selected, onSelect, onAccept, onCreateTick
                 {meta.label}
               </span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+            {/* Mensaje crudo (ej. "Frecuencia anómala: 0.00Hz") — así coincide con la campana. */}
+            {item.message && item.message !== deriveTitle(item) ? (
+              <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{item.message}</p>
+            ) : null}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
               <span className="font-mono text-[11px] text-slate-600">
                 {item.device.externalId}
               </span>
@@ -140,6 +144,16 @@ export function AlarmListCard({ item, selected, onSelect, onAccept, onCreateTick
               </div>
             ) : null}
 
+            {item.latestTicket ? (
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-sky-50 px-2 py-1 text-[11px] text-sky-800 ring-1 ring-sky-100">
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-sky-600" />
+                <span className="truncate">
+                  Ticket creado{item.ticketCount > 1 ? ` (${item.ticketCount})` : ""} ·{" "}
+                  <span className="font-medium">{item.latestTicket.title}</span>
+                </span>
+              </div>
+            ) : null}
+
             {!resolved ? (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
@@ -152,17 +166,27 @@ export function AlarmListCard({ item, selected, onSelect, onAccept, onCreateTick
                 >
                   Aceptar
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreateTicket();
-                  }}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Ticket className="h-3 w-3" />
-                  Crear ticket
-                </button>
+                {item.latestTicket ? (
+                  <span
+                    className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-400"
+                    title="Ya existe un ticket para esta alarma"
+                  >
+                    <Ticket className="h-3 w-3" />
+                    Ticket creado
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateTicket();
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <Ticket className="h-3 w-3" />
+                    Crear ticket
+                  </button>
+                )}
               </div>
             ) : (
               <div className="mt-2 text-[11px] font-medium text-emerald-700">

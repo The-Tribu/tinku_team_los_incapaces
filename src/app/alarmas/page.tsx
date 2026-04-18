@@ -78,18 +78,36 @@ export default async function AlarmsPage({
     openInfo,
     resolvedSample,
     activeProviders,
+    assignableUsersRaw,
   ] = await Promise.all([
     prisma.alarm.findMany({
       where,
-      take: 100,
-      orderBy: [{ severity: "asc" }, { startedAt: "desc" }],
+      take: 200,
+      orderBy: [
+        { resolvedAt: { sort: "asc", nulls: "first" } },
+        { severity: "asc" },
+        { startedAt: "desc" },
+      ],
       include: {
         device: {
           include: {
-            plant: { select: { id: true, name: true, code: true } },
+            plant: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                client: { select: { contactEmail: true } },
+              },
+            },
             provider: { select: { slug: true, displayName: true } },
           },
         },
+        tickets: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, title: true, status: true, priority: true, createdAt: true },
+        },
+        _count: { select: { tickets: true } },
       },
     }),
     prisma.alarm.count(),
@@ -104,12 +122,15 @@ export default async function AlarmsPage({
       select: { startedAt: true, resolvedAt: true },
       take: 500,
     }),
-    // Catálogo completo de marcas con al menos un dispositivo en flota, para
-    // que el filtro muestre Huawei aunque todavía no haya alarmas Huawei.
     prisma.provider.findMany({
       where: { devices: { some: {} } },
       select: { slug: true },
       orderBy: { slug: "asc" },
+    }),
+    prisma.user.findMany({
+      where: { active: true, role: { in: ["admin", "ops"] } },
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, email: true, role: true },
     }),
   ]);
 
@@ -134,9 +155,6 @@ export default async function AlarmsPage({
     slaPct = (within / resolvedSample.length) * 100;
   }
 
-  // Marcas disponibles para el filtro: catálogo de proveedores con
-  // dispositivos activos. Se unifican con los proveedores presentes en las
-  // alarmas visibles por si alguno quedó sin `device` (edge case legacy).
   const providerSlugs = Array.from(
     new Set([
       ...activeProviders.map((p) => p.slug),
@@ -156,6 +174,21 @@ export default async function AlarmsPage({
     acknowledgedAt: a.acknowledgedAt?.toISOString() ?? null,
     aiSuggestion: a.aiSuggestion,
     assignee: a.assignee,
+    assignedUserId: a.assignedUserId,
+    escalatedAt: a.escalatedAt?.toISOString() ?? null,
+    escalatedBy: a.escalatedBy,
+    escalationNote: a.escalationNote,
+    clientContactEmail: a.device.plant.client.contactEmail,
+    ticketCount: a._count.tickets,
+    latestTicket: a.tickets[0]
+      ? {
+          id: a.tickets[0].id,
+          title: a.tickets[0].title,
+          status: a.tickets[0].status,
+          priority: a.tickets[0].priority,
+          createdAt: a.tickets[0].createdAt.toISOString(),
+        }
+      : null,
     device: {
       id: a.device.id,
       externalId: a.device.externalId,
@@ -198,6 +231,10 @@ export default async function AlarmsPage({
     }));
   }
 
+  const currentUser = user
+    ? { id: user.id, name: user.name, role: user.role }
+    : null;
+
   return (
     <AppShell
       title="Centro de Alarmas"
@@ -234,6 +271,8 @@ export default async function AlarmsPage({
           window: sp.window ?? null,
         }}
         providerSlugs={providerSlugs}
+        currentUser={currentUser}
+        assignableUsers={assignableUsersRaw}
       />
     </AppShell>
   );

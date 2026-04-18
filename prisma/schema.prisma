@@ -170,17 +170,47 @@ model Alarm {
   acknowledgedBy   String?   @map("acknowledged_by") @db.Uuid
   notifiedAt       DateTime? @map("notified_at") // última vez que salió fanout
   assignee         String?
+  assignedUserId   String?   @map("assigned_user_id") @db.Uuid
   aiSuggestion     String?   @map("ai_suggestion")
+  escalatedAt      DateTime? @map("escalated_at")
+  escalatedBy      String?   @map("escalated_by") @db.Uuid
+  escalationNote   String?   @map("escalation_note")
 
   device       Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   predictions  Prediction[]
   remediations Remediation[]
+  tickets      Ticket[]
 
   @@unique([deviceId, source, providerAlarmKey], name: "alarms_device_source_key")
   @@index([deviceId, startedAt(sort: Desc)])
   @@index([resolvedAt])
   @@index([severity, startedAt(sort: Desc)])
   @@map("alarms")
+}
+
+// ── Tickets ───────────────────────────────────────────────────
+// Un ticket nace normalmente de una alarma: la operación decide que el
+// problema requiere seguimiento más allá del simple ack/resolve (ej. cambio
+// de inversor, visita en sitio, coordinación con el cliente). El ticket
+// vive más allá del cierre de la alarma y se puede asignar / re-priorizar.
+model Ticket {
+  id          String    @id @default(uuid()) @db.Uuid
+  alarmId     String?   @map("alarm_id") @db.Uuid
+  title       String
+  description String?
+  priority    String    @default("medium") // low | medium | high | urgent
+  status      String    @default("open") // open | in_progress | blocked | resolved | closed
+  assignee    String?
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  closedAt    DateTime? @map("closed_at")
+
+  alarm Alarm? @relation(fields: [alarmId], references: [id], onDelete: SetNull)
+
+  @@index([alarmId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("tickets")
 }
 
 // ── Notificaciones ────────────────────────────────────────────

@@ -22,11 +22,17 @@ for (const f of [".env.local", ".env"]) {
 
 import { prisma } from "../src/lib/prisma";
 import { mw } from "../src/lib/middleware";
-import { providers } from "../src/lib/normalize";
+import { providers, type CanonicalPlant } from "../src/lib/normalize";
 
 // TTL largo (15 min) para inventario — plantas cambian rara vez y recortamos
 // llamadas repetidas cuando el cron hace plants-sync cada hora.
 const PLANTS_TTL_SEC = 15 * 60;
+
+// Límites defensivos para las iteraciones paginadas de Growatt.
+const GROWATT_CUSERS_PERPAGE = 100;
+const GROWATT_CUSERS_MAX_PAGES = 20;
+const GROWATT_PLANTS_PERPAGE = 10;
+const GROWATT_PLANTS_MAX_PAGES = 50;
 
 async function fetchDeye() {
   const res = await mw<{ stationList?: unknown[] }>(
@@ -37,39 +43,130 @@ async function fetchDeye() {
   return providers.deye.plantsList(res);
 }
 
-async function fetchGrowatt() {
-  try {
-    const res = await mw<unknown>(
-      "/growatt/v1/plant/list",
-      { method: "GET" },
-      { cacheTtlSec: PLANTS_TTL_SEC },
-    );
-    const list = providers.growatt.plantsList(res);
-    if (list.length > 0) return list;
-  } catch (err) {
-    console.warn(`[growatt] plant/list failed: ${(err as Error).message.slice(0, 120)}`);
+type GrowattCUser = {
+  c_user_id?: number | string;
+  id?: number | string;
+  user_id?: number | string;
+};
+
+// Growatt documenta c_user_list / plant/list bajo distintas envolturas según la
+// versión del middleware. Extraemos ids buscando en las rutas conocidas.
+function extractGrowattCUserIds(resp: unknown): number[] {
+  if (!resp || typeof resp !== "object") return [];
+  const root = resp as {
+    data?:
+      | GrowattCUser[]
+      | {
+          c_user?: GrowattCUser[];
+          c_users?: GrowattCUser[];
+          list?: GrowattCUser[];
+          users?: GrowattCUser[];
+        };
+    c_user?: GrowattCUser[];
+    c_users?: GrowattCUser[];
+  };
+  const candidates: GrowattCUser[] = Array.isArray(root.data)
+    ? root.data
+    : (root.data?.c_user ??
+        root.data?.c_users ??
+        root.data?.list ??
+        root.data?.users ??
+        root.c_user ??
+        root.c_users ??
+        []);
+  const ids: number[] = [];
+  for (const u of candidates) {
+    const raw = u?.c_user_id ?? u?.id ?? u?.user_id;
+    const id = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(id)) ids.push(id);
   }
-  // Rate-limited or encrypted. Fall back to the known Bavaria Tibitó plant.
-  try {
-    const data = await mw<{ data?: { peak_power_actual?: number } }>(
-      "/growatt/v1/plant/data?plant_id=1356131",
-      undefined,
-      { cacheTtlSec: PLANTS_TTL_SEC },
-    );
-    return [
-      {
-        external_id: "1356131",
-        name: "Planta Bavaria Tibitó",
-        location: "Cundinamarca, Colombia",
-        lat: 5.02,
-        lng: -73.95,
-        capacity_kwp: Number(data?.data?.peak_power_actual ?? 50),
-      },
-    ];
-  } catch (err) {
-    console.warn(`[growatt] plant/data failed: ${(err as Error).message.slice(0, 120)}`);
-    return [];
+  return [...new Set(ids)];
+}
+
+async function fetchGrowattCUserIds(): Promise<number[]> {
+  const all: number[] = [];
+  for (let page = 1; page <= GROWATT_CUSERS_MAX_PAGES; page++) {
+    try {
+      const res = await mw<unknown>(
+        `/growatt/v1/user/c_user_list?page=${page}&perpage=${GROWATT_CUSERS_PERPAGE}`,
+        { method: "GET" },
+        { cacheTtlSec: PLANTS_TTL_SEC },
+      );
+      const ids = extractGrowattCUserIds(res);
+      if (ids.length === 0) break;
+      all.push(...ids);
+      if (ids.length < GROWATT_CUSERS_PERPAGE) break;
+    } catch (err) {
+      console.warn(
+        `[growatt] c_user_list page=${page} failed: ${(err as Error).message.slice(0, 120)}`,
+      );
+      break;
+    }
   }
+  return [...new Set(all)];
+}
+
+async function fetchGrowattPlantsForCUser(cUserId: number): Promise<CanonicalPlant[]> {
+  const plants: CanonicalPlant[] = [];
+  for (let page = 1; page <= GROWATT_PLANTS_MAX_PAGES; page++) {
+    try {
+      const res = await mw<unknown>(
+        `/growatt/v1/plant/list?c_user_id=${cUserId}&page=${page}&perpage=${GROWATT_PLANTS_PERPAGE}`,
+        { method: "GET" },
+        { cacheTtlSec: PLANTS_TTL_SEC },
+      );
+      const pagePlants = providers.growatt.plantsList(res);
+      if (pagePlants.length === 0) break;
+      plants.push(...pagePlants);
+      if (pagePlants.length < GROWATT_PLANTS_PERPAGE) break;
+    } catch (err) {
+      console.warn(
+        `[growatt] plant/list c_user_id=${cUserId} page=${page} failed: ${(err as Error).message.slice(0, 120)}`,
+      );
+      break;
+    }
+  }
+  return plants;
+}
+
+async function fetchGrowatt(): Promise<CanonicalPlant[]> {
+  const cUserIds = await fetchGrowattCUserIds();
+  if (cUserIds.length === 0) {
+    console.warn("[growatt] c_user_list vacío — usando fallback Bavaria Tibitó");
+    try {
+      const data = await mw<{ data?: { peak_power_actual?: number } }>(
+        "/growatt/v1/plant/data?plant_id=1356131",
+        undefined,
+        { cacheTtlSec: PLANTS_TTL_SEC },
+      );
+      return [
+        {
+          external_id: "1356131",
+          name: "Planta Bavaria Tibitó",
+          location: "Cundinamarca, Colombia",
+          lat: 5.02,
+          lng: -73.95,
+          capacity_kwp: Number(data?.data?.peak_power_actual ?? 50),
+        },
+      ];
+    } catch (err) {
+      console.warn(`[growatt] plant/data fallback failed: ${(err as Error).message.slice(0, 120)}`);
+      return [];
+    }
+  }
+
+  console.log(`[growatt] c_users=${cUserIds.length} — iterando plant/list por usuario`);
+  const seen = new Set<string>();
+  const out: CanonicalPlant[] = [];
+  for (const uid of cUserIds) {
+    const plants = await fetchGrowattPlantsForCUser(uid);
+    for (const p of plants) {
+      if (seen.has(p.external_id)) continue;
+      seen.add(p.external_id);
+      out.push(p);
+    }
+  }
+  return out;
 }
 
 /**

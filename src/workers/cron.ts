@@ -106,7 +106,9 @@ async function main() {
   );
 
   if (RUN_ON_START) {
-    await safeRun("plants-sync (bootstrap)", syncRealPlants);
+    // plants-sync en bootstrap deshabilitado temporalmente (flujo
+    // c_user_list → plant/list consume demasiadas llamadas al arrancar).
+    // El schedule recurrente sigue activo.
     await safeRun("ingest (bootstrap)", ingestTick);
     await safeRun("alarms (bootstrap)", ingestAlarms);
     await safeRun("baselines (bootstrap)", updateBaselines);

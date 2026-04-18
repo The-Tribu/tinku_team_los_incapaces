@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -8,24 +8,27 @@ import {
   ChevronUp,
   ExternalLink,
   MapPin,
-  PlusCircle,
   RefreshCw,
   Send,
   Sparkles,
+  Ticket,
 } from "lucide-react";
 import { BrandChip } from "@/components/sunhub/brand-chip";
 import { StatusBadge } from "@/components/sunhub/status-badge";
 import { cn } from "@/lib/cn";
 import type { AlarmItem, AlarmReadingPoint } from "./alarms-center";
+import type { AssignableUser } from "./ticket-create-modal";
 import { AlarmChart } from "./alarm-chart";
 
 type Props = {
   item: AlarmItem | null;
   readings: AlarmReadingPoint[];
+  assignableUsers: AssignableUser[];
   onResolve: (id: string) => void;
   onReopen: (id: string) => void;
   onEscalate: (id: string) => void;
-  onAssign: (id: string, assignee: string) => void;
+  onAssign: (id: string, userId: string | null) => void;
+  onCreateTicket: (id: string) => void;
 };
 
 const ACTIVE_RULES: { id: string; name: string; desc: string }[] = [
@@ -59,14 +62,26 @@ function fmtAgo(iso: string) {
 export function AlarmDetailPanel({
   item,
   readings,
+  assignableUsers,
   onResolve,
   onReopen,
   onEscalate,
   onAssign,
+  onCreateTicket,
 }: Props) {
-  const [rulesOpen, setRulesOpen] = useState(true);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [comment, setComment] = useState("");
-  const [assignee, setAssignee] = useState<string>("");
+  const [assigneeId, setAssigneeId] = useState<string>("");
+
+  // Cuando cambia la alarma seleccionada, sincronizamos el dropdown con
+  // el responsable actual (si existe y está en la lista).
+  useEffect(() => {
+    if (!item) {
+      setAssigneeId("");
+      return;
+    }
+    setAssigneeId(item.assignedUserId ?? "");
+  }, [item]);
 
   if (!item) {
     return (
@@ -116,14 +131,40 @@ export function AlarmDetailPanel({
           <AlarmChart data={readings} />
         </div>
 
-        {/* CTA manual */}
-        <Link
-          href={`/alarmas?new=1&plantId=${item.plant.id}`}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-sunhub-primary px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Nueva alarma manual
-        </Link>
+        {/* Ticket asociado */}
+        {item.latestTicket ? (
+          <div className="rounded-xl bg-sky-50 p-3 text-xs text-sky-900 ring-1 ring-sky-100">
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-sky-700">
+                <Ticket className="h-3 w-3" />
+                Ticket asociado
+                {item.ticketCount > 1 ? (
+                  <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                    {item.ticketCount}
+                  </span>
+                ) : null}
+              </div>
+              <span className="text-[10px] uppercase tracking-wider text-sky-600">
+                {item.latestTicket.status}
+              </span>
+            </div>
+            <p className="mt-1 text-sm font-medium text-slate-800">
+              {item.latestTicket.title}
+            </p>
+            <p className="mt-0.5 text-[11px] text-sky-700">
+              Prioridad {item.latestTicket.priority} · creado {fmtAgo(item.latestTicket.createdAt)}
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onCreateTicket(item.id)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-sunhub-primary px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            <Ticket className="h-4 w-4" />
+            Crear ticket desde esta alarma
+          </button>
+        )}
 
         {/* AI suggestion */}
         {item.aiSuggestion ? (
@@ -154,6 +195,20 @@ export function AlarmDetailPanel({
             <dt className="text-slate-500">Asignada a</dt>
             <dd className="mt-0.5 text-slate-800">{item.assignee ?? "Sin asignar"}</dd>
           </div>
+          {item.escalatedAt ? (
+            <div className="col-span-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-amber-900 ring-1 ring-amber-100">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                Escalada al cliente
+              </div>
+              <div className="text-[11px]">
+                {fmtAgo(item.escalatedAt)}
+                {item.clientContactEmail ? ` · ${item.clientContactEmail}` : ""}
+              </div>
+              {item.escalationNote ? (
+                <div className="mt-1 text-[11px] italic">“{item.escalationNote}”</div>
+              ) : null}
+            </div>
+          ) : null}
         </dl>
 
         {/* Asignar */}
@@ -163,25 +218,35 @@ export function AlarmDetailPanel({
           </label>
           <div className="flex items-center gap-2">
             <select
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
+              value={assigneeId}
+              onChange={(e) => setAssigneeId(e.target.value)}
               className="h-8 flex-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-800 outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
             >
-              <option value="">Seleccionar responsable…</option>
-              <option value="Operaciones">Operaciones</option>
-              <option value="Mantenimiento">Mantenimiento</option>
-              <option value="Cliente">Cliente</option>
-              <option value="Juan Pérez">Juan Pérez</option>
+              <option value="">Sin asignar</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} · {u.role}
+                </option>
+              ))}
             </select>
             <button
               type="button"
-              disabled={!assignee}
-              onClick={() => assignee && onAssign(item.id, assignee)}
+              disabled={assigneeId === (item.assignedUserId ?? "")}
+              onClick={() => onAssign(item.id, assigneeId || null)}
               className="inline-flex h-8 items-center gap-1 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40"
             >
               Asignar
             </button>
           </div>
+          {assignableUsers.length === 0 ? (
+            <p className="mt-1 text-[10px] text-slate-400">
+              No hay usuarios admin u ops disponibles. Crea usuarios desde{" "}
+              <Link href="/usuarios" className="text-emerald-700 hover:underline">
+                /usuarios
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
 
         {/* Comentario */}
@@ -222,7 +287,7 @@ export function AlarmDetailPanel({
               <button
                 type="button"
                 onClick={() => onEscalate(item.id)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
               >
                 <Send className="h-3.5 w-3.5" />
                 Escalar a cliente

@@ -185,8 +185,9 @@ clean:
 	rm -rf .next tsconfig.tsbuildinfo
 
 # ---------- workflows ------------------------------------------------------
-# Setup completo: deps, DB lista, schema aplicado, plantas reales cargadas.
-bootstrap: install db-up smtp-up db-push plants-sync
+# Setup completo: deps, DB lista, schema aplicado.
+# Nota: plants-sync se omite en el bootstrap (correrlo a mano con `make plants-sync`).
+bootstrap: install db-up smtp-up db-push
 	@echo ""
 	@echo "✓ Bootstrap completo."
 	@echo "  Próximo paso → make up   (dev + cron en paralelo)"

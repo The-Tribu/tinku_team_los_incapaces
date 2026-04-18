@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -17,6 +17,9 @@ import { KpiCard } from "@/components/sunhub/kpi-card";
 import { cn } from "@/lib/cn";
 import { AlarmListCard } from "./alarm-list-card";
 import { AlarmDetailPanel } from "./alarm-detail-panel";
+import { AlarmToastStack, type AlarmToast } from "./alarm-toast";
+import { TicketCreateModal, type AssignableUser } from "./ticket-create-modal";
+import { EscalateModal } from "./escalate-modal";
 
 export type AlarmSeverity = "critical" | "warning" | "info";
 
@@ -31,6 +34,19 @@ export type AlarmItem = {
   acknowledgedAt: string | null;
   aiSuggestion: string | null;
   assignee: string | null;
+  assignedUserId: string | null;
+  escalatedAt: string | null;
+  escalatedBy: string | null;
+  escalationNote: string | null;
+  clientContactEmail: string | null;
+  ticketCount: number;
+  latestTicket: {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    createdAt: string;
+  } | null;
   device: {
     id: string;
     externalId: string;
@@ -76,6 +92,8 @@ type Props = {
     window: string | null;
   };
   providerSlugs: string[];
+  currentUser: { id: string; name: string; role: string } | null;
+  assignableUsers: AssignableUser[];
 };
 
 const TABS: { value: Tab; label: string; countKey: keyof Props["counts"] }[] = [
@@ -102,12 +120,17 @@ export function AlarmsCenter({
   kpis,
   filters,
   providerSlugs,
+  currentUser,
+  assignableUsers,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [query, setQuery] = useState("");
+  const [toasts, setToasts] = useState<AlarmToast[]>([]);
+  const [ticketAlarm, setTicketAlarm] = useState<AlarmItem | null>(null);
+  const [escalateAlarm, setEscalateAlarm] = useState<AlarmItem | null>(null);
 
   const selected = useMemo(
     () => items.find((i) => i.id === selectedId) ?? null,
@@ -127,9 +150,17 @@ export function AlarmsCenter({
     );
   }, [items, query]);
 
+  const pushToast = useCallback((t: Omit<AlarmToast, "id">) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [{ ...t, id }, ...prev].slice(0, 4));
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   function buildHref(patch: Record<string, string | null>): string {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
-    // Al cambiar tab/filtro quitamos selectedId para que el server escoja el primero
     params.delete("selectedId");
     for (const [k, v] of Object.entries(patch)) {
       if (v === null || v === "") params.delete(k);
@@ -148,13 +179,56 @@ export function AlarmsCenter({
     });
   }
 
-  async function patchAlarm(id: string, body: Record<string, unknown>) {
-    await fetch(`/api/alarms/${id}`, {
+  async function patchAlarm(id: string, body: Record<string, unknown>): Promise<boolean> {
+    const res = await fetch(`/api/alarms/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!res.ok) return false;
     startTransition(() => router.refresh());
+    return true;
+  }
+
+  async function handleAccept(item: AlarmItem) {
+    const ok = await patchAlarm(item.id, { accept: true });
+    if (ok) {
+      pushToast({
+        kind: "success",
+        title: "Alarma aceptada",
+        body: currentUser
+          ? `Asignada a ${currentUser.name}`
+          : "Marcada como reconocida",
+      });
+    } else {
+      pushToast({ kind: "error", title: "No se pudo aceptar la alarma" });
+    }
+  }
+
+  async function handleAssign(id: string, userId: string | null) {
+    const ok = await patchAlarm(id, { assignedUserId: userId });
+    if (ok) {
+      const name = userId ? assignableUsers.find((u) => u.id === userId)?.name : null;
+      pushToast({
+        kind: "success",
+        title: userId ? "Responsable asignado" : "Asignación liberada",
+        body: name ? `Alarma asignada a ${name}` : undefined,
+      });
+    } else {
+      pushToast({ kind: "error", title: "No se pudo asignar" });
+    }
+  }
+
+  async function handleResolve(id: string) {
+    const ok = await patchAlarm(id, { resolve: true });
+    if (ok) pushToast({ kind: "success", title: "Alarma resuelta" });
+    else pushToast({ kind: "error", title: "No se pudo resolver" });
+  }
+
+  async function handleReopen(id: string) {
+    const ok = await patchAlarm(id, { reopen: true });
+    if (ok) pushToast({ kind: "info", title: "Alarma reabierta" });
+    else pushToast({ kind: "error", title: "No se pudo reabrir" });
   }
 
   return (
@@ -215,13 +289,13 @@ export function AlarmsCenter({
         <div className="flex flex-col justify-between gap-2 lg:col-span-1">
           <button
             type="button"
-            onClick={() => {
-              // Silenciar todas abiertas → no cambiamos el resolvedAt, solo ack.
-              Promise.all(
-                items
-                  .filter((i) => !i.resolvedAt && !i.acknowledgedAt)
-                  .map((i) => patchAlarm(i.id, { ack: true })),
-              );
+            onClick={async () => {
+              const toAck = items.filter((i) => !i.resolvedAt && !i.acknowledgedAt);
+              await Promise.all(toAck.map((i) => patchAlarm(i.id, { ack: true })));
+              pushToast({
+                kind: "success",
+                title: `Silenciadas ${toAck.length} alarmas`,
+              });
             }}
             className="inline-flex h-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:bg-slate-50"
           >
@@ -356,10 +430,18 @@ export function AlarmsCenter({
                     item={item}
                     selected={item.id === selectedId}
                     onSelect={() => handleSelect(item.id)}
-                    onAccept={() => patchAlarm(item.id, { assignee: "Operaciones" })}
-                    onCreateTicket={() =>
-                      patchAlarm(item.id, { ack: true, assignee: "Tickets" })
-                    }
+                    onAccept={() => handleAccept(item)}
+                    onCreateTicket={() => {
+                      if (item.latestTicket) {
+                        pushToast({
+                          kind: "info",
+                          title: "Ya existe un ticket",
+                          body: item.latestTicket.title,
+                        });
+                        return;
+                      }
+                      setTicketAlarm(item);
+                    }}
                   />
                 ))
               )}
@@ -370,15 +452,85 @@ export function AlarmsCenter({
           <AlarmDetailPanel
             item={selected}
             readings={selected ? readings : []}
-            onResolve={(id) => patchAlarm(id, { resolve: true })}
-            onReopen={(id) => patchAlarm(id, { reopen: true })}
-            onEscalate={(id) =>
-              patchAlarm(id, { ack: true, assignee: "Cliente" })
-            }
-            onAssign={(id, assignee) => patchAlarm(id, { assignee })}
+            assignableUsers={assignableUsers}
+            onResolve={handleResolve}
+            onReopen={handleReopen}
+            onEscalate={() => selected && setEscalateAlarm(selected)}
+            onAssign={handleAssign}
+            onCreateTicket={() => {
+              if (!selected) return;
+              if (selected.latestTicket) {
+                pushToast({
+                  kind: "info",
+                  title: "Ya existe un ticket",
+                  body: selected.latestTicket.title,
+                });
+                return;
+              }
+              setTicketAlarm(selected);
+            }}
           />
         </div>
       </div>
+
+      {ticketAlarm ? (
+        <TicketCreateModal
+          alarm={ticketAlarm}
+          assignableUsers={assignableUsers}
+          onClose={() => setTicketAlarm(null)}
+          onCreated={(ticket) => {
+            setTicketAlarm(null);
+            pushToast({
+              kind: "success",
+              title: "Ticket creado",
+              body: ticket.title,
+            });
+            startTransition(() => router.refresh());
+          }}
+          onError={(msg) => {
+            pushToast({ kind: "error", title: "No se pudo crear el ticket", body: msg });
+          }}
+        />
+      ) : null}
+
+      {escalateAlarm ? (
+        <EscalateModal
+          alarm={escalateAlarm}
+          clientEmail={escalateAlarm.clientContactEmail}
+          onClose={() => setEscalateAlarm(null)}
+          onEscalated={(result) => {
+            setEscalateAlarm(null);
+            if (result.status === "sent") {
+              pushToast({
+                kind: "success",
+                title: "Escalada al cliente",
+                body: result.to ? `Correo enviado a ${result.to}` : undefined,
+              });
+            } else if (result.status === "skipped") {
+              pushToast({
+                kind: "info",
+                title: "Escalada registrada",
+                body:
+                  result.reason === "client_sin_correo"
+                    ? "El cliente no tiene correo de contacto"
+                    : "Se registró el escalamiento (SMTP no configurado)",
+              });
+            } else {
+              pushToast({
+                kind: "error",
+                title: "Falló el envío del escalamiento",
+                body: result.reason,
+              });
+            }
+            startTransition(() => router.refresh());
+          }}
+          onError={(msg) => {
+            pushToast({ kind: "error", title: "No se pudo escalar", body: msg });
+          }}
+        />
+      ) : null}
+
+      <AlarmToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
