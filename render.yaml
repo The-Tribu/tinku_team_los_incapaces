@@ -1,0 +1,95 @@
+# SunHub · Render Blueprint
+# Despliega la base de datos Postgres y el worker de cron.
+# La app Next.js se despliega aparte en Vercel (ver docs/DESPLIEGUE.md).
+#
+# Uso:
+#   1. Push de este archivo en la raíz del repo.
+#   2. En Render → New + → Blueprint → seleccionar este repo.
+#   3. Render detecta render.yaml y propone crear los servicios.
+#   4. Completar en el dashboard las variables marcadas con `sync: false`
+#      (secrets: API keys, SMTP password, etc).
+
+databases:
+  - name: sunhub-db
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "15"
+    ipAllowList: []  # solo acceso desde servicios Render + Vercel (vía URL externa)
+
+services:
+  - type: worker
+    name: sunhub-cron
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    rootDir: .
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm run cron
+    autoDeploy: true
+    envVars:
+      # --- Base de datos (inyectada desde sunhub-db) ---
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sunhub-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: sunhub-db
+          property: connectionString
+
+      # --- Middleware Tinku ---
+      - key: MIDDLEWARE_BASE_URL
+        value: https://techos.thetribu.dev
+      - key: MIDDLEWARE_API_KEY
+        sync: false  # secret: configurar en el dashboard
+
+      # --- MiniMax (LLM del Copilot) ---
+      - key: MINIMAX_BASE_URL
+        value: https://api.minimax.io/v1
+      - key: MINIMAX_MODEL
+        value: MiniMax-Text-01
+      - key: MINIMAX_API_KEY
+        sync: false  # secret
+
+      # --- Clima ---
+      - key: WEATHER_BASE_URL
+        value: https://api.open-meteo.com/v1
+
+      # --- SMTP (notificaciones/tickets) ---
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false  # secret
+      - key: SMTP_FROM
+        value: SunHub <noreply@sunhub.app>
+
+      # --- App ---
+      - key: APP_BASE_URL
+        sync: false  # ej. https://sunhub.vercel.app (depende del dominio Vercel)
+      - key: NODE_ENV
+        value: production
+
+      # --- Cron schedules ---
+      - key: CRON_TIMEZONE
+        value: America/Bogota
+      - key: CRON_RUN_ON_START
+        value: "1"
+      - key: CRON_INGEST_SCHEDULE
+        value: "*/5 * * * *"
+      - key: CRON_ALARMS_SCHEDULE
+        value: "* * * * *"
+      - key: CRON_PLANTS_SYNC_SCHEDULE
+        value: "0 * * * *"
+      - key: CRON_BASELINES_SCHEDULE
+        value: "15 3 * * *"
+      - key: CRON_REPORT_SCHEDULES_SCHEDULE
+        value: "* * * * *"
+
+      # --- Parámetros de negocio ---
+      - key: ALARMS_WINDOW_DAYS
+        value: "2"
