@@ -17,6 +17,7 @@ import { KpiCard } from "@/components/sunhub/kpi-card";
 import { MetricBar } from "@/components/sunhub/metric-bar";
 import { SectionCard } from "@/components/sunhub/section-card";
 import { StatusBadge } from "@/components/sunhub/status-badge";
+import { LiveRefresh } from "@/components/sunhub/live-refresh";
 import { cn } from "@/lib/cn";
 import { displayClientLabel, isUmbrellaClient } from "@/lib/display";
 import { prisma } from "@/lib/prisma";
@@ -237,7 +238,8 @@ export default async function PlantDetailPage({
       title={plant.name}
       subtitle={headerSubtitle}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <LiveRefresh intervalMs={30_000} />
           <Link
             href="/plantas"
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"

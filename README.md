@@ -86,6 +86,18 @@ Abrir [http://localhost:3000](http://localhost:3000).
 npm run ingest
 ```
 
+### 7. Scraper DeyeCloud demo (opcional)
+
+Emula la integración con un proveedor sin API oficial: scrapea la landing
+`/deye-demo` y persiste las lecturas por la misma pipeline canónica.
+
+```bash
+npm run scrape:deye:pw            # headless, continuo (cada SCRAPE_INTERVAL_MS)
+npm run scrape:deye:pw -- --once  # un solo tick y sale
+npm run scrape:deye:pw:headed     # browser visible (debug)
+npm run scrape:deye                # variante via HTTP (sin Playwright)
+```
+
 ---
 
 ## Variables de entorno

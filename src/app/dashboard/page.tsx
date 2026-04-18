@@ -14,6 +14,7 @@ import { BrandChip } from "@/components/sunhub/brand-chip";
 import { MetricBar } from "@/components/sunhub/metric-bar";
 import { GenerationChart } from "@/components/sunhub/generation-chart";
 import { FleetMapPanel } from "@/components/sunhub/fleet-overview";
+import { LiveRefresh } from "@/components/sunhub/live-refresh";
 import { getFleetSummary, getTopPlants } from "@/lib/fleet";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/cn";
@@ -237,12 +238,15 @@ export default async function DashboardPage() {
       title="Dashboard Global"
       subtitle={`${summary.totalPlants} plantas monitoreadas · actualizado ahora`}
       actions={
-        <Link
-          href="/reportes"
-          className="hidden rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 md:inline-flex"
-        >
-          Exportar reporte
-        </Link>
+        <div className="flex items-center gap-3">
+          <LiveRefresh intervalMs={30_000} />
+          <Link
+            href="/reportes"
+            className="hidden rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 md:inline-flex"
+          >
+            Exportar reporte
+          </Link>
+        </div>
       }
     >
       {/* ── KPI strip ──────────────────────────────────────────── */}
