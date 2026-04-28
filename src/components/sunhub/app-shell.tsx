@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
@@ -14,12 +13,12 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { cn } from "@/lib/cn";
 import { getSessionUser, type Role } from "@/lib/auth";
 import { UserMenu } from "./user-menu";
 import { AlarmBell } from "./alarm-bell";
 import { JobsIndicator } from "./jobs-indicator";
 import { CopilotFab } from "./copilot-fab";
+import { SidebarNav } from "./sidebar-nav";
 
 type NavItem = {
   href: string;
@@ -66,21 +65,7 @@ export async function AppShell({
           <span className="font-heading text-xl font-bold text-sunhub-primary">SunHub</span>
           <Gauge className="h-4 w-4 text-amber-500" />
         </div>
-        <nav className="flex flex-col gap-0.5 p-3">
-          {visibleNav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600",
-                "hover:bg-emerald-50 hover:text-emerald-700",
-              )}
-            >
-              <span className="text-slate-400">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <SidebarNav items={visibleNav} />
         <div className="mx-3 mt-6 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-4 text-white">
           <div className="text-xs font-medium opacity-80">Demo SunHub</div>
           <div className="mt-1 text-sm font-semibold">Hackathon Tinku 2026</div>
